@@ -1,0 +1,22 @@
+# Cloudflare Pages Security Headers
+
+/*
+  # 보안 헤더 설정
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Content Security Policy (필요시 조정)
+  # Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://apis.data.go.kr https://api.openweathermap.org;
+
+  # 캐시 제어
+  Cache-Control: public, max-age=0, must-revalidate
+
+# 정적 자산 캐싱 (JS, CSS, 이미지)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Service Worker 캐싱 비활성화
+/service-worker.js
+  Cache-Control: no-cache, no-store, must-revalidate

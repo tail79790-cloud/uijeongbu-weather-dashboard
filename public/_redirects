@@ -1,0 +1,8 @@
+# Cloudflare Pages Redirects
+# SPA (Single Page Application) fallback routing
+
+# API 호출은 그대로 통과
+/api/* 200
+
+# 모든 페이지 요청을 index.html로 리다이렉트 (SPA 라우팅)
+/*  /index.html  200

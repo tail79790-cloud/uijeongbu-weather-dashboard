@@ -60,11 +60,13 @@ describe('ThemeContext - localStorage 안전성', () => {
   });
 
   it('localStorage에서 오류가 발생해도 기본값을 반환해야 함', () => {
-    // localStorage에서 오류 발생하도록 설정
-    Object.defineProperty(global, 'localStorage', {
-      get: () => {
-        throw new Error('localStorage access denied');
-      },
+    // localStorage.getItem을 오류 발생하도록 모킹
+    const mockGetItem = vi.fn(() => {
+      throw new Error('localStorage access denied');
+    });
+
+    Object.defineProperty(global.localStorage, 'getItem', {
+      value: mockGetItem,
       configurable: true,
     });
 
@@ -89,9 +91,9 @@ describe('ThemeContext - localStorage 안전성', () => {
   });
 
   it('SSR 환경(window undefined)에서도 작동해야 함', () => {
-    // window를 undefined로 모킹
-    const originalWindow = global.window;
-    delete global.window;
+    // window.matchMedia를 undefined로 설정
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = undefined;
 
     expect(() => {
       const TestComponent = () => {
@@ -106,7 +108,7 @@ describe('ThemeContext - localStorage 안전성', () => {
       );
     }).not.toThrow();
 
-    // window 복원
-    global.window = originalWindow;
+    // matchMedia 복원
+    window.matchMedia = originalMatchMedia;
   });
 });

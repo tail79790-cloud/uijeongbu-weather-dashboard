@@ -49,8 +49,16 @@ export const getCurrentWeather = async (lat = 37.738, lon = 127.034) => {
   } catch (error) {
     console.error('현재 날씨 조회 오류:', error);
 
+    // API 키 문제 감지
+    if (error.response?.status === 401 || API_KEY === 'demo_key') {
+      console.warn('⚠️ OpenWeatherMap API 키 문제 감지 - 목업 데이터로 전환');
+      console.warn('실제 데이터를 보려면 Cloudflare Pages 환경변수 VITE_OPENWEATHER_API_KEY를 설정하세요');
+      console.warn('설정 방법: CLOUDFLARE_ENV_SETUP.md 참조');
+      return getMockCurrentWeatherData();
+    }
+
     // 개발 환경에서는 목업 데이터 반환
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
+    if (import.meta.env.DEV) {
       console.log('개발 모드: 목업 데이터 사용');
       return getMockCurrentWeatherData();
     }

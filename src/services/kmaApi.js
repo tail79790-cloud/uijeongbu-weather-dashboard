@@ -74,7 +74,15 @@ export const getUltraSrtNcst = async (options = {}) => {
   } catch (error) {
     console.error('초단기실황 조회 오류:', error);
 
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
+    // API 키 문제 또는 개발 환경에서 목업 데이터 사용
+    if (API_KEY === 'demo_key') {
+      console.warn('⚠️ 기상청 API 키 문제 감지 - 목업 데이터로 전환');
+      console.warn('실제 데이터를 보려면 Cloudflare Pages 환경변수 VITE_KMA_API_KEY를 설정하세요');
+      return getMockUltraSrtNcst();
+    }
+
+    if (import.meta.env.DEV || error.response?.status === 401 || error.response?.data?.response?.header?.resultCode === '03') {
+      console.log('개발 모드 또는 데이터 없음: 목업 데이터 사용');
       return getMockUltraSrtNcst();
     }
 

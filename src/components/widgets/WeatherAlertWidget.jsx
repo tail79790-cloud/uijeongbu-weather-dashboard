@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getWeatherWarning, getWeatherWarningMsg } from '../../services/kmaApi';
 import { formatKoreanDateTime } from '../../utils/dateFormatter';
+import { formatAlertText, REGION_CODES, REGION_NAMES } from '../../utils/alertFormatter';
+import RefreshButton from '../common/RefreshButton';
 
 // 아이콘 컴포넌트
 const AlertIcon = ({ className = "w-6 h-6" }) => (
@@ -11,19 +13,8 @@ const AlertIcon = ({ className = "w-6 h-6" }) => (
   </svg>
 );
 
-const BellIcon = ({ className = "w-5 h-5" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-  </svg>
-);
-
-const RefreshIcon = ({ className = "w-4 h-4", spinning = false }) => (
-  <svg className={`${className} ${spinning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-);
+// BellIcon 제거 (요구사항: 종 모양 아이콘 제거)
+// RefreshIcon 제거 - RefreshButton 공통 컴포넌트 사용
 
 // 특보 레벨에 따른 스타일
 const getLevelStyle = (title) => {
@@ -87,13 +78,10 @@ const AlertCard = ({ warning, message }) => {
         {/* 통보문 */}
         {message && (
           <div className="bg-white rounded-lg p-4 mb-3 border border-gray-200">
-            <div className="flex items-start space-x-2">
-              <BellIcon className={`${style.icon} mt-1 flex-shrink-0`} />
-              <div className="flex-1">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                  {message.t1 || '특보 상세 정보가 없습니다.'}
-                </p>
-              </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                {formatAlertText(message.t1) || '특보 상세 정보가 없습니다.'}
+              </p>
             </div>
           </div>
         )}
@@ -126,18 +114,22 @@ const AlertCard = ({ warning, message }) => {
 
 // 메인 위젯
 const WeatherAlertWidget = () => {
+  // 지역 선택 상태 (기본: 의정부)
+  const [selectedRegion, setSelectedRegion] = useState('uijeongbu');
+  const currentRegionCode = REGION_CODES[selectedRegion];
+
   // 기상특보 목록 조회 (1분마다 갱신)
   const { data: warningData, isLoading: warningLoading, error: warningError, refetch: refetchWarning } = useQuery({
-    queryKey: ['weatherWarning'],
-    queryFn: () => getWeatherWarning('109'), // 의정부 지역 코드
+    queryKey: ['weatherWarning', currentRegionCode],
+    queryFn: () => getWeatherWarning(currentRegionCode || '109'),
     refetchInterval: 60 * 1000, // 1분
     staleTime: 30 * 1000,
   });
 
   // 기상특보 통보문 조회
   const { data: messageData, isLoading: messageLoading, refetch: refetchMessage } = useQuery({
-    queryKey: ['weatherWarningMsg'],
-    queryFn: () => getWeatherWarningMsg('109'),
+    queryKey: ['weatherWarningMsg', currentRegionCode],
+    queryFn: () => getWeatherWarningMsg(currentRegionCode || '109'),
     refetchInterval: 60 * 1000,
     staleTime: 30 * 1000,
   });
@@ -163,12 +155,7 @@ const WeatherAlertWidget = () => {
       <div className="weather-card border-l-4 border-red-400">
         <div className="weather-card-header">
           <span>🚨 긴급 기상특보</span>
-          <button
-            onClick={handleRefresh}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <RefreshIcon />
-          </button>
+          <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
         </div>
         <div className="text-center py-8 text-red-600">
           <AlertIcon className="w-12 h-12 mx-auto mb-4" />
@@ -191,7 +178,7 @@ const WeatherAlertWidget = () => {
       <div className="weather-card">
         <div className="weather-card-header">
           <span>🚨 긴급 기상특보</span>
-          <RefreshIcon spinning />
+          <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
         </div>
         <div className="flex items-center justify-center h-48">
           <div className="text-center">
@@ -203,35 +190,55 @@ const WeatherAlertWidget = () => {
     );
   }
 
+  // 탭 버튼 렌더링 함수
+  const renderTabs = () => (
+    <div className="flex space-x-2 p-2 bg-gray-50 rounded-lg mb-4">
+      {Object.keys(REGION_CODES).map((region) => (
+        <button
+          key={region}
+          role="tab"
+          onClick={() => setSelectedRegion(region)}
+          className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            selectedRegion === region
+              ? 'bg-blue-600 text-white shadow-md active'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          {REGION_NAMES[region]}
+        </button>
+      ))}
+    </div>
+  );
+
   // 특보 없음
   if (alertsWithMessages.length === 0) {
     return (
       <div className="weather-card border-l-4 border-green-400">
         <div className="weather-card-header">
           <span>🚨 긴급 기상특보</span>
-          <button
-            onClick={handleRefresh}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            disabled={isLoading}
-          >
-            <RefreshIcon spinning={isLoading} />
-          </button>
+          <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
         </div>
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+
+        {/* 지역 선택 탭 */}
+        <div className="p-4">
+          {renderTabs()}
+
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-lg font-semibold text-gray-800 mb-2">
+              현재 발효 중인 기상특보가 없습니다
+            </p>
+            <p className="text-sm text-gray-500">
+              {REGION_NAMES[selectedRegion]}는 현재 안전합니다
+            </p>
+            <p className="text-xs text-gray-400 mt-4">
+              마지막 확인: {formatKoreanDateTime(new Date())}
+            </p>
           </div>
-          <p className="text-lg font-semibold text-gray-800 mb-2">
-            현재 발효 중인 기상특보가 없습니다
-          </p>
-          <p className="text-sm text-gray-500">
-            의정부시는 현재 안전합니다
-          </p>
-          <p className="text-xs text-gray-400 mt-4">
-            마지막 확인: {formatKoreanDateTime(new Date())}
-          </p>
         </div>
       </div>
     );
@@ -248,16 +255,13 @@ const WeatherAlertWidget = () => {
             {alertsWithMessages.length}
           </span>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="p-2 hover:bg-red-100 rounded-full transition-colors"
-          disabled={isLoading}
-        >
-          <RefreshIcon spinning={isLoading} className="text-red-600" />
-        </button>
+        <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
       </div>
 
       <div className="p-4 space-y-4">
+        {/* 지역 선택 탭 */}
+        {renderTabs()}
+
         {/* 특보 카드 목록 */}
         {alertsWithMessages.map((alert, index) => (
           <AlertCard

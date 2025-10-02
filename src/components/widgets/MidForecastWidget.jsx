@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { getMidTa, getMidLandFcst } from '../../services/kmaApi';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import WidgetCard from '../common/WidgetCard';
+import WidgetLoader from '../common/WidgetLoader';
+import WidgetError from '../common/WidgetError';
+import RefreshButton from '../common/RefreshButton';
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSystem';
 
 const DayCard = ({ day, temp, weather }) => {
   const getWeatherIcon = (wf) => {
@@ -52,14 +57,14 @@ const DayCard = ({ day, temp, weather }) => {
 };
 
 const MidForecastWidget = () => {
-  const { data: tempData, isLoading: tempLoading } = useQuery({
+  const { data: tempData, isLoading: tempLoading, error: tempError, refetch: tempRefetch } = useQuery({
     queryKey: ['midTa'],
     queryFn: () => getMidTa('11B00000'),
     refetchInterval: 6 * 60 * 60 * 1000,
     staleTime: 3 * 60 * 60 * 1000,
   });
 
-  const { data: weatherData, isLoading: weatherLoading } = useQuery({
+  const { data: weatherData, isLoading: weatherLoading, error: weatherError, refetch: weatherRefetch } = useQuery({
     queryKey: ['midLandFcst'],
     queryFn: () => getMidLandFcst('11B00000'),
     refetchInterval: 6 * 60 * 60 * 1000,
@@ -67,15 +72,36 @@ const MidForecastWidget = () => {
   });
 
   const isLoading = tempLoading || weatherLoading;
+  const error = tempError || weatherError;
+  const handleRefresh = () => {
+    tempRefetch();
+    weatherRefetch();
+  };
 
+  // 에러 상태
+  if (error) {
+    return (
+      <WidgetCard
+        title="📆 중기예보 (3~10일)"
+        subtitle="하루 2회 발표"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+        headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
+      >
+        <WidgetError message="중기예보 데이터를 불러올 수 없습니다" onRetry={handleRefresh} />
+      </WidgetCard>
+    );
+  }
+
+  // 로딩 상태
   if (isLoading) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">📆 중기예보 (3~10일)</div>
-        <div className="flex items-center justify-center h-48">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      </div>
+      <WidgetCard
+        title="📆 중기예보 (3~10일)"
+        subtitle="하루 2회 발표"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+      >
+        <WidgetLoader message={LOADING_MESSAGES.FORECAST} />
+      </WidgetCard>
     );
   }
 
@@ -100,15 +126,12 @@ const MidForecastWidget = () => {
   }
 
   return (
-    <div className="weather-card">
-      <div className="weather-card-header">
-        <span>📆 중기예보 (3~10일)</span>
-        <span className="text-xs text-gray-500 font-normal">
-          하루 2회 발표
-        </span>
-      </div>
-
-      <div className="p-4">
+    <WidgetCard
+      title="📆 중기예보 (3~10일)"
+      subtitle="하루 2회 발표"
+      borderColor={WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
+    >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {days.map((day, idx) => (
             <DayCard key={idx} {...day} />
@@ -122,8 +145,7 @@ const MidForecastWidget = () => {
         <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
           자동 갱신: 6시간마다 • 발표시각: 06시, 18시
         </div>
-      </div>
-    </div>
+    </WidgetCard>
   );
 };
 

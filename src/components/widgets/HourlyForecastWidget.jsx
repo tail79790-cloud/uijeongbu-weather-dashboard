@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { getUltraSrtFcst, getVilageFcst } from '../../services/kmaApi';
 import { formatKoreanTime } from '../../utils/dateFormatter';
+import WidgetCard from '../common/WidgetCard';
+import WidgetLoader from '../common/WidgetLoader';
+import WidgetError from '../common/WidgetError';
+import RefreshButton from '../common/RefreshButton';
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSystem';
 
 // 시간별 예보 카드 컴포넌트
 const HourlyCard = ({ forecast }) => {
@@ -78,7 +83,7 @@ const CustomTooltip = ({ active, payload }) => {
 // 메인 위젯
 const HourlyForecastWidget = () => {
   // 초단기예보 (6시간)
-  const { data: ultraData, isLoading: ultraLoading } = useQuery({
+  const { data: ultraData, isLoading: ultraLoading, error: ultraError, refetch: ultraRefetch } = useQuery({
     queryKey: ['ultraSrtFcst'],
     queryFn: getUltraSrtFcst,
     refetchInterval: 10 * 60 * 1000, // 10분
@@ -86,7 +91,7 @@ const HourlyForecastWidget = () => {
   });
 
   // 단기예보 (24시간)
-  const { data: vilageData, isLoading: vilageLoading } = useQuery({
+  const { data: vilageData, isLoading: vilageLoading, error: vilageError, refetch: vilageRefetch } = useQuery({
     queryKey: ['vilageFcst'],
     queryFn: getVilageFcst,
     refetchInterval: 30 * 60 * 1000, // 30분
@@ -94,6 +99,11 @@ const HourlyForecastWidget = () => {
   });
 
   const isLoading = ultraLoading || vilageLoading;
+  const error = ultraError || vilageError;
+  const handleRefresh = () => {
+    ultraRefetch();
+    vilageRefetch();
+  };
 
   // 데이터 통합 (초단기 6시간 + 단기 24시간)
   const forecasts = (() => {
@@ -114,30 +124,46 @@ const HourlyForecastWidget = () => {
     return combined.slice(0, 24);
   })();
 
+  // 에러 상태
+  if (error) {
+    return (
+      <WidgetCard
+        title="📊 시간별 예보"
+        subtitle="초단기 + 단기예보"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+        headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
+      >
+        <WidgetError message="예보 데이터를 불러올 수 없습니다" onRetry={handleRefresh} />
+      </WidgetCard>
+    );
+  }
+
   // 로딩 상태
   if (isLoading) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">📊 시간별 예보</div>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-500">예보 데이터 로딩 중...</p>
-          </div>
-        </div>
-      </div>
+      <WidgetCard
+        title="📊 시간별 예보"
+        subtitle="초단기 + 단기예보"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+      >
+        <WidgetLoader message={LOADING_MESSAGES.FORECAST} />
+      </WidgetCard>
     );
   }
 
   // 데이터 없음
   if (forecasts.length === 0) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">📊 시간별 예보</div>
+      <WidgetCard
+        title="📊 시간별 예보"
+        subtitle="초단기 + 단기예보"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+        headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
+      >
         <div className="text-center py-12 text-gray-500">
           <p>예보 데이터가 없습니다</p>
         </div>
-      </div>
+      </WidgetCard>
     );
   }
 
@@ -152,15 +178,13 @@ const HourlyForecastWidget = () => {
   }));
 
   return (
-    <div className="weather-card">
-      <div className="weather-card-header">
-        <span>📊 시간별 예보 (24시간)</span>
-        <span className="text-xs text-gray-500 font-normal">
-          초단기 + 단기예보
-        </span>
-      </div>
-
-      <div className="p-4 space-y-6">
+    <WidgetCard
+      title="📊 시간별 예보 (24시간)"
+      subtitle="초단기 + 단기예보"
+      borderColor={WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
+    >
+      <div className="space-y-6">
         {/* 온도 그래프 */}
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3">🌡️ 기온 변화</h3>
@@ -246,7 +270,7 @@ const HourlyForecastWidget = () => {
           자동 갱신: 10분마다 • 마지막 업데이트: {new Date().toLocaleTimeString('ko-KR')}
         </div>
       </div>
-    </div>
+    </WidgetCard>
   );
 };
 

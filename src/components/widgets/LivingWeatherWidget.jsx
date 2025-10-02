@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { getLivingWeatherIndex } from '../../services/kmaApi';
+import WidgetCard from '../common/WidgetCard';
+import WidgetLoader from '../common/WidgetLoader';
+import WidgetError from '../common/WidgetError';
+import RefreshButton from '../common/RefreshButton';
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSystem';
 
 const UV_INFO = {
   '낮음': { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', icon: '🟢' },
@@ -24,33 +29,36 @@ const ASTHMA_INFO = {
 };
 
 const LivingWeatherWidget = () => {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['livingWeatherIndex'],
     queryFn: () => getLivingWeatherIndex({ areaNo: '1100000000' }),
     refetchInterval: 60 * 60 * 1000, // 1시간마다 갱신
     staleTime: 30 * 60 * 1000, // 30분 캐시
   });
 
-  if (isLoading) {
+  // 에러 상태
+  if (error || !data?.success) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">🌡️ 생활기상지수</div>
-        <div className="flex items-center justify-center h-32">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      </div>
+      <WidgetCard
+        title="🌡️ 생활기상지수"
+        subtitle="KMA API 키 필요"
+        borderColor={WIDGET_BORDER_COLORS.DEFAULT}
+        headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+      >
+        <WidgetError message="생활기상지수를 불러올 수 없습니다" onRetry={refetch} />
+      </WidgetCard>
     );
   }
 
-  if (error || !data?.success) {
+  // 로딩 상태
+  if (isLoading) {
     return (
-      <div className="weather-card border-l-4 border-gray-400">
-        <div className="weather-card-header">🌡️ 생활기상지수</div>
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-sm">생활기상지수를 불러올 수 없습니다</p>
-          <p className="text-xs mt-2">KMA API 키 필요</p>
-        </div>
-      </div>
+      <WidgetCard
+        title="🌡️ 생활기상지수"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+      >
+        <WidgetLoader message={LOADING_MESSAGES.DEFAULT} />
+      </WidgetCard>
     );
   }
 
@@ -60,15 +68,12 @@ const LivingWeatherWidget = () => {
   const asthmaInfo = indexData.asthma ? ASTHMA_INFO[indexData.asthma.text] || ASTHMA_INFO['낮음'] : ASTHMA_INFO['낮음'];
 
   return (
-    <div className="weather-card border-l-4 border-blue-500">
-      <div className="weather-card-header">
-        <span>🌡️ 생활기상지수</span>
-        <span className="text-xs text-gray-500 font-normal">
-          {indexData.lastUpdate}
-        </span>
-      </div>
-
-      <div className="p-4">
+    <WidgetCard
+      title="🌡️ 생활기상지수"
+      subtitle={indexData.lastUpdate}
+      borderColor={WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+    >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* 자외선지수 */}
           {indexData.uv && (
@@ -149,8 +154,7 @@ const LivingWeatherWidget = () => {
         <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
           자동 갱신: 1시간마다 • 출처: 기상청
         </div>
-      </div>
-    </div>
+    </WidgetCard>
   );
 };
 

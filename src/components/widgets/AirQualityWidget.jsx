@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAirPollution } from '../../services/openWeatherApi';
+import WidgetCard from '../common/WidgetCard';
+import WidgetLoader from '../common/WidgetLoader';
+import WidgetError from '../common/WidgetError';
+import RefreshButton from '../common/RefreshButton';
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSystem';
 
 const AQI_INFO = {
   1: { text: '매우 좋음', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
@@ -10,7 +15,7 @@ const AQI_INFO = {
 };
 
 const AirQualityWidget = () => {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['airPollution'],
     queryFn: () => getAirPollution(37.738, 127.034),
     refetchInterval: 30 * 60 * 1000,
@@ -19,24 +24,24 @@ const AirQualityWidget = () => {
 
   if (isLoading) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">💨 대기질 정보</div>
-        <div className="flex items-center justify-center h-32">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      </div>
+      <WidgetCard title="💨 대기질 정보" borderColor={WIDGET_BORDER_COLORS.DEFAULT}>
+        <WidgetLoader message={LOADING_MESSAGES.AIR_QUALITY} />
+      </WidgetCard>
     );
   }
 
   if (error || !data?.success) {
     return (
-      <div className="weather-card border-l-4 border-gray-400">
-        <div className="weather-card-header">💨 대기질 정보</div>
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-sm">대기질 데이터를 불러올 수 없습니다</p>
-          <p className="text-xs mt-2">OpenWeatherMap API 키 필요</p>
-        </div>
-      </div>
+      <WidgetCard
+        title="💨 대기질 정보"
+        borderColor={WIDGET_BORDER_COLORS.DEFAULT}
+        headerAction={<RefreshButton onRefresh={refetch} />}
+      >
+        <WidgetError
+          message="대기질 데이터를 불러올 수 없습니다"
+          onRetry={refetch}
+        />
+      </WidgetCard>
     );
   }
 
@@ -45,13 +50,16 @@ const AirQualityWidget = () => {
   const aqiInfo = AQI_INFO[aqi] || AQI_INFO[2];
 
   return (
-    <div className={`weather-card border-l-4 ${aqiInfo.border}`}>
-      <div className="weather-card-header">
-        <span>💨 대기질 정보</span>
-        <span className="text-xs text-gray-500 font-normal">
-          {airData.lastUpdate}
-        </span>
-      </div>
+    <WidgetCard
+      title="💨 대기질 정보"
+      subtitle={airData.lastUpdate}
+      borderColor={aqiInfo.border.includes('green') ? WIDGET_BORDER_COLORS.SUCCESS :
+                   aqiInfo.border.includes('red') ? WIDGET_BORDER_COLORS.DANGER :
+                   aqiInfo.border.includes('yellow') ? WIDGET_BORDER_COLORS.WARNING :
+                   aqiInfo.border.includes('orange') ? WIDGET_BORDER_COLORS.ALERT :
+                   WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+    >
 
       <div className="p-4">
         {/* 종합 대기질 지수 */}
@@ -103,7 +111,7 @@ const AirQualityWidget = () => {
           자동 갱신: 30분마다
         </div>
       </div>
-    </div>
+    </WidgetCard>
   );
 };
 

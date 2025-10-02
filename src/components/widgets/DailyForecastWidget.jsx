@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { getVilageFcst } from '../../services/kmaApi';
 import { formatKoreanDate } from '../../utils/dateFormatter';
 import { startOfDay, addDays, isSameDay } from 'date-fns';
+import WidgetCard from '../common/WidgetCard';
+import WidgetLoader from '../common/WidgetLoader';
+import WidgetError from '../common/WidgetError';
+import RefreshButton from '../common/RefreshButton';
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSystem';
 
 // 일별 예보 카드
 const DayCard = ({ day }) => {
@@ -94,38 +99,37 @@ const DayCard = ({ day }) => {
 // 메인 위젯
 const DailyForecastWidget = () => {
   // 단기예보 조회
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['vilageFcst'],
     queryFn: getVilageFcst,
     refetchInterval: 30 * 60 * 1000, // 30분
     staleTime: 15 * 60 * 1000,
   });
 
-  // 로딩 상태
-  if (isLoading) {
-    return (
-      <div className="weather-card">
-        <div className="weather-card-header">📅 3일간 예보</div>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-500">예보 데이터 로딩 중...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // 에러 상태
   if (error) {
     return (
-      <div className="weather-card border-l-4 border-red-400">
-        <div className="weather-card-header">📅 3일간 예보</div>
-        <div className="text-center py-12 text-red-600">
-          <p className="font-medium mb-2">예보 데이터를 불러올 수 없습니다</p>
-          <p className="text-sm">{error.message}</p>
-        </div>
-      </div>
+      <WidgetCard
+        title="📅 3일간 예보"
+        subtitle="단기예보 기반"
+        borderColor={WIDGET_BORDER_COLORS.DANGER}
+        headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+      >
+        <WidgetError message="예보 데이터를 불러올 수 없습니다" onRetry={refetch} />
+      </WidgetCard>
+    );
+  }
+
+  // 로딩 상태
+  if (isLoading) {
+    return (
+      <WidgetCard
+        title="📅 3일간 예보"
+        subtitle="단기예보 기반"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+      >
+        <WidgetLoader message={LOADING_MESSAGES.FORECAST} />
+      </WidgetCard>
     );
   }
 
@@ -134,12 +138,16 @@ const DailyForecastWidget = () => {
   // 데이터 없음
   if (forecasts.length === 0) {
     return (
-      <div className="weather-card">
-        <div className="weather-card-header">📅 3일간 예보</div>
+      <WidgetCard
+        title="📅 3일간 예보"
+        subtitle="단기예보 기반"
+        borderColor={WIDGET_BORDER_COLORS.INFO}
+        headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+      >
         <div className="text-center py-12 text-gray-500">
           <p>예보 데이터가 없습니다</p>
         </div>
-      </div>
+      </WidgetCard>
     );
   }
 
@@ -209,15 +217,12 @@ const DailyForecastWidget = () => {
   }
 
   return (
-    <div className="weather-card">
-      <div className="weather-card-header">
-        <span>📅 3일간 예보</span>
-        <span className="text-xs text-gray-500 font-normal">
-          단기예보 기반
-        </span>
-      </div>
-
-      <div className="p-4">
+    <WidgetCard
+      title="📅 3일간 예보"
+      subtitle="단기예보 기반"
+      borderColor={WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+    >
         {dailyData.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -244,8 +249,7 @@ const DailyForecastWidget = () => {
             <p>3일 예보 데이터를 처리할 수 없습니다</p>
           </div>
         )}
-      </div>
-    </div>
+    </WidgetCard>
   );
 };
 

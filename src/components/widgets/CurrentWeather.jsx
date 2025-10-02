@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentWeather } from '../../services/openWeatherApi'
+import WidgetCard from '../common/WidgetCard'
+import WidgetLoader from '../common/WidgetLoader'
+import WidgetError from '../common/WidgetError'
+import RefreshButton from '../common/RefreshButton'
+import { WIDGET_BORDER_COLORS, LOADING_MESSAGES, ERROR_MESSAGES } from '../../constants/designSystem'
 
 // 의정부시 좌표
 const UIJEONGBU_COORDS = {
@@ -10,7 +14,7 @@ const UIJEONGBU_COORDS = {
 
 function CurrentWeather() {
   // React Query로 날씨 데이터 조회 (5분마다 자동 새로고침)
-  const { data: weatherResponse, isLoading, error } = useQuery({
+  const { data: weatherResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['currentWeather', UIJEONGBU_COORDS.lat, UIJEONGBU_COORDS.lon],
     queryFn: () => getCurrentWeather(UIJEONGBU_COORDS.lat, UIJEONGBU_COORDS.lon),
     refetchInterval: 5 * 60 * 1000, // 5분마다 새로고침
@@ -22,62 +26,43 @@ function CurrentWeather() {
   const weatherData = weatherResponse?.data
   const hasError = !isLoading && (!weatherResponse?.success || error)
 
+  // 로딩 상태
   if (isLoading) {
     return (
-      <div className="weather-card animate-pulse">
-        <div className="weather-card-header">
-          <div className="h-6 bg-gray-200 rounded w-24"></div>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="h-16 w-16 bg-gray-200 rounded-full"></div>
-          <div className="text-right">
-            <div className="h-12 bg-gray-200 rounded w-20 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-16"></div>
-          </div>
-        </div>
-      </div>
+      <WidgetCard title="🌤️ 현재 날씨" borderColor={WIDGET_BORDER_COLORS.INFO}>
+        <WidgetLoader message={LOADING_MESSAGES.WEATHER} />
+      </WidgetCard>
     )
   }
 
-  // 에러 상태 처리
+  // 에러 상태
   if (hasError) {
     return (
-      <div className="weather-card border-l-4 border-red-400">
-        <div className="weather-card-header">
-          ⚠️ 날씨 정보 오류
-        </div>
-        <div className="text-center py-8">
-          <p className="text-gray-500 mb-2">날씨 데이터를 가져올 수 없습니다</p>
-          <p className="text-sm text-gray-400">
-            {error?.message || weatherResponse?.message || '알 수 없는 오류'}
-          </p>
-        </div>
-      </div>
+      <WidgetCard title="🌤️ 현재 날씨" borderColor={WIDGET_BORDER_COLORS.DANGER}>
+        <WidgetError
+          message={error?.message || weatherResponse?.message || ERROR_MESSAGES.API}
+          onRetry={refetch}
+        />
+      </WidgetCard>
     )
   }
 
-  // 데이터가 없는 경우
+  // 데이터 없음
   if (!weatherData) {
     return (
-      <div className="weather-card border-l-4 border-yellow-400">
-        <div className="weather-card-header">
-          📡 데이터 없음
-        </div>
-        <div className="text-center py-8">
-          <p className="text-gray-500">날씨 데이터가 없습니다</p>
-        </div>
-      </div>
+      <WidgetCard title="🌤️ 현재 날씨" borderColor={WIDGET_BORDER_COLORS.WARNING}>
+        <WidgetError message={ERROR_MESSAGES.NO_DATA} />
+      </WidgetCard>
     )
   }
 
   return (
-    <div className="weather-card border-l-4 border-blue-400">
-      <div className="weather-card-header">
-        🌤️ 현재 날씨
-        <span className="text-xs text-gray-500 font-normal">
-          {weatherData.lastUpdate} 업데이트
-        </span>
-      </div>
+    <WidgetCard
+      title="🌤️ 현재 날씨"
+      subtitle={`${weatherData.lastUpdate} 업데이트`}
+      borderColor={WIDGET_BORDER_COLORS.INFO}
+      headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
+    >
 
       <div className="flex items-center justify-between mb-4">
         <div className="text-6xl">
@@ -166,7 +151,7 @@ function CurrentWeather() {
           {weatherData.location ? `${weatherData.location} • ` : ''}실시간 업데이트
         </div>
       </div>
-    </div>
+    </WidgetCard>
   )
 }
 

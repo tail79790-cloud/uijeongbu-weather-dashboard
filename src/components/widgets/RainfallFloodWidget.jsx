@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -8,6 +8,10 @@ import {
   processWaterLevelData,
   calculateRiskLevel
 } from '../../services/hanRiverApi';
+import RiskGauge from '../common/RiskGauge';
+import RiskBadge from '../common/RiskBadge';
+import RefreshButton from '../common/RefreshButton';
+import { calculateRainfallRisk, calculateWaterLevelRisk } from '../../utils/riskCalculator';
 
 // 아이콘 컴포넌트들
 const RainIcon = ({ className = "w-5 h-5" }) => (
@@ -31,36 +35,6 @@ const AlertIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-const RefreshIcon = ({ className = "w-4 h-4" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-);
-
-// 위험도 표시 컴포넌트
-const RiskIndicator = ({ risk }) => {
-  const getColorClasses = (level) => {
-    switch (level) {
-      case 'danger':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'caution':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'watch':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      default:
-        return 'bg-green-100 text-green-800 border-green-200';
-    }
-  };
-
-  return (
-    <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getColorClasses(risk.level)}`}>
-      <AlertIcon className="w-4 h-4 mr-1" />
-      {risk.text}
-    </div>
-  );
-};
-
 // 강수량 정보 컴포넌트
 const RainfallInfo = ({ data }) => {
   if (!data || data.length === 0) {
@@ -73,7 +47,10 @@ const RainfallInfo = ({ data }) => {
   }
 
   const latest = data[0];
-  const risk = calculateRiskLevel(latest.rainfall24h, 0, { level1: 0, level2: 0, level3: 0 });
+  const risk = calculateRainfallRisk({
+    rainfall1h: latest.rainfall1h || 0,
+    rainfall24h: latest.rainfall24h || 0,
+  });
 
   return (
     <div className="space-y-4">
@@ -82,8 +59,18 @@ const RainfallInfo = ({ data }) => {
           <RainIcon className="w-5 h-5 text-blue-500" />
           <h4 className="font-semibold text-gray-800">강수량 정보</h4>
         </div>
-        <RiskIndicator risk={risk} />
+        <RiskBadge level={risk.level} text={risk.text} icon="💧" />
       </div>
+
+      {/* 강수량 게이지 추가 */}
+      <RiskGauge
+        value={latest.rainfall24h || 0}
+        max={250}
+        level={risk.level}
+        label="24시간 누적"
+        showValues={true}
+        showPercent={false}
+      />
 
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="grid grid-cols-2 gap-4">
@@ -133,12 +120,12 @@ const WaterLevelInfo = ({ data }) => {
   }
 
   const latest = data[0];
-  const warningLevels = {
-    level1: latest.warningLevel1,
-    level2: latest.warningLevel2,
-    level3: latest.warningLevel3
-  };
-  const risk = calculateRiskLevel(0, latest.waterLevel, warningLevels);
+  const risk = calculateWaterLevelRisk({
+    current: latest.waterLevel,
+    watch: latest.warningLevel1,
+    caution: latest.warningLevel2,
+    danger: latest.warningLevel3,
+  });
 
   const getWaterLevelStatus = () => {
     if (latest.waterLevel >= latest.warningLevel3) return '홍수위';
@@ -154,8 +141,18 @@ const WaterLevelInfo = ({ data }) => {
           <WaterIcon className="w-5 h-5 text-blue-500" />
           <h4 className="font-semibold text-gray-800">수위 정보</h4>
         </div>
-        <RiskIndicator risk={risk} />
+        <RiskBadge level={risk.level} text={risk.text} icon="🌊" />
       </div>
+
+      {/* 수위 게이지 추가 */}
+      <RiskGauge
+        value={latest.waterLevel}
+        max={latest.warningLevel3}
+        level={risk.level}
+        label="현재 수위"
+        showValues={true}
+        showPercent={true}
+      />
 
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-center mb-4">
@@ -240,28 +237,19 @@ const RainfallFloodWidget = () => {
     };
   }, [floodData]);
 
-  const handleRefresh = () => {
-    refetch();
-  };
-
   if (error) {
     return (
       <div className="weather-card status-danger">
         <div className="weather-card-header">
           <span>강수량 & 홍수 정보</span>
-          <button
-            onClick={handleRefresh}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <RefreshIcon />
-          </button>
+          <RefreshButton onRefresh={refetch} isLoading={isLoading} />
         </div>
         <div className="text-center py-8 text-red-600">
           <AlertIcon className="w-12 h-12 mx-auto mb-4" />
           <p className="font-medium">데이터를 불러올 수 없습니다</p>
           <p className="text-sm mt-2">{error.message}</p>
           <button
-            onClick={handleRefresh}
+            onClick={refetch}
             className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
           >
             다시 시도
@@ -275,18 +263,7 @@ const RainfallFloodWidget = () => {
     <div className="weather-card">
       <div className="weather-card-header">
         <span>강수량 & 홍수 정보</span>
-        <div className="flex items-center space-x-2">
-          {isLoading && (
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          )}
-          <button
-            onClick={handleRefresh}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            disabled={isLoading}
-          >
-            <RefreshIcon className={isLoading ? 'animate-spin' : ''} />
-          </button>
-        </div>
+        <RefreshButton onRefresh={refetch} isLoading={isLoading} />
       </div>
 
       <div className="space-y-6">

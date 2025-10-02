@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 
 // 중요한 위젯만 즉시 로드
@@ -69,45 +70,63 @@ function AppContent() {
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* 긴급 특보 (최상단, 전체 너비) */}
-            <WeatherAlertWidget />
+            <ErrorBoundary>
+              <WeatherAlertWidget />
+            </ErrorBoundary>
 
             {/* 현재 날씨 & 강수량/수위 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <CurrentWeather />
-              <Suspense fallback={<WidgetLoader />}>
-                <RainfallFloodWidget />
-              </Suspense>
+              <ErrorBoundary>
+                <CurrentWeather />
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <Suspense fallback={<WidgetLoader />}>
+                  <RainfallFloodWidget />
+                </Suspense>
+              </ErrorBoundary>
             </div>
 
             {/* 시간별 예보 (전체 너비) */}
-            <Suspense fallback={<WidgetLoader />}>
-              <HourlyForecastWidget />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<WidgetLoader />}>
+                <HourlyForecastWidget />
+              </Suspense>
+            </ErrorBoundary>
 
             {/* 3일 예보 (전체 너비) */}
-            <Suspense fallback={<WidgetLoader />}>
-              <DailyForecastWidget />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<WidgetLoader />}>
+                <DailyForecastWidget />
+              </Suspense>
+            </ErrorBoundary>
 
             {/* 중기예보 (전체 너비) */}
-            <Suspense fallback={<WidgetLoader />}>
-              <MidForecastWidget />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<WidgetLoader />}>
+                <MidForecastWidget />
+              </Suspense>
+            </ErrorBoundary>
 
             {/* 대기질 & 생활기상지수 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Suspense fallback={<WidgetLoader />}>
-                <AirQualityWidget />
-              </Suspense>
-              <Suspense fallback={<WidgetLoader />}>
-                <LivingWeatherWidget />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<WidgetLoader />}>
+                  <AirQualityWidget />
+                </Suspense>
+              </ErrorBoundary>
+              <ErrorBoundary>
+                <Suspense fallback={<WidgetLoader />}>
+                  <LivingWeatherWidget />
+                </Suspense>
+              </ErrorBoundary>
             </div>
 
             {/* 알림 설정 */}
-            <Suspense fallback={<WidgetLoader />}>
-              <NotificationSettings />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<WidgetLoader />}>
+                <NotificationSettings />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </main>
 

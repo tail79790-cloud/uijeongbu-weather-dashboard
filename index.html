@@ -22,19 +22,25 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
 
-    <!-- Service Worker 등록 -->
+    <!-- Service Worker 등록 (선택적 기능) -->
     <script>
+      // Service Worker는 선택적 PWA 기능 - 실패해도 앱은 정상 작동
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-              console.log('Service Worker 등록 성공:', registration.scope);
-            })
-            .catch((error) => {
-              // Service Worker 등록 실패해도 앱은 정상 작동
-              console.warn('Service Worker 등록 실패 (무시 가능):', error);
-            });
+          // Service Worker 등록을 비동기로 처리하여 앱 로딩 차단 방지
+          setTimeout(() => {
+            navigator.serviceWorker.register('/service-worker.js')
+              .then((registration) => {
+                console.log('✅ Service Worker 등록 성공:', registration.scope);
+              })
+              .catch((error) => {
+                // Service Worker 등록 실패는 치명적이지 않음
+                console.warn('⚠️ Service Worker 등록 실패 (앱은 정상 작동):', error);
+              });
+          }, 1000); // 1초 후에 등록하여 초기 렌더링 방해하지 않음
         });
+      } else {
+        console.log('ℹ️ Service Worker not supported - app will work normally without PWA features');
       }
 
       // 디버깅: root 엘리먼트 확인

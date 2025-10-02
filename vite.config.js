@@ -25,7 +25,13 @@ export default defineConfig({
     // CSS 코드 스플리팅
     cssCodeSplit: true,
     // 소스맵 비활성화로 빌드 크기 감소
-    sourcemap: false
+    sourcemap: false,
+    // 더 안정적인 빌드를 위한 옵션
+    target: 'es2015', // 더 넓은 브라우저 호환성
+    minify: 'esbuild', // 빠른 minification
+    reportCompressedSize: false, // 빌드 속도 향상
+    // 에러 발생 시에도 빌드 계속 진행
+    emptyOutDir: true
   },
   server: {
     proxy: {

@@ -1,26 +1,40 @@
 import { format, parse, addHours, startOfDay } from 'date-fns';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { ko } from 'date-fns/locale';
 
 /**
  * 기상청 API 날짜 형식 변환 유틸리티
+ * 모든 시간은 KST (Asia/Seoul, UTC+9) 기준
  */
+
+const KST_TIMEZONE = 'Asia/Seoul';
+
+/**
+ * 현재 KST 시간 가져오기
+ * @returns {Date} KST 시간대의 현재 시각
+ */
+export function getKSTNow() {
+  return toZonedTime(new Date(), KST_TIMEZONE);
+}
 
 /**
  * 현재 날짜를 기상청 API 형식으로 변환 (YYYYMMDD)
- * @param {Date} date - 변환할 날짜 (기본값: 현재)
+ * @param {Date} date - 변환할 날짜 (기본값: 현재 KST)
  * @returns {string} YYYYMMDD 형식 문자열
  */
-export function formatDateToKMA(date = new Date()) {
-  return format(date, 'yyyyMMdd');
+export function formatDateToKMA(date) {
+  const kstDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
+  return format(kstDate, 'yyyyMMdd');
 }
 
 /**
  * 현재 시간을 기상청 API 형식으로 변환 (HHmm)
- * @param {Date} date - 변환할 날짜 (기본값: 현재)
+ * @param {Date} date - 변환할 날짜 (기본값: 현재 KST)
  * @returns {string} HHmm 형식 문자열
  */
-export function formatTimeToKMA(date = new Date()) {
-  return format(date, 'HHmm');
+export function formatTimeToKMA(date) {
+  const kstDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
+  return format(kstDate, 'HHmm');
 }
 
 /**
@@ -51,11 +65,11 @@ export function parseKMADateTime(dateStr, timeStr) {
 
 /**
  * 초단기실황 발표 시각 계산
- * @param {Date} date - 기준 날짜 (기본값: 현재)
+ * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
-export function getUltraSrtNcstBase(date = new Date()) {
-  let baseDate = new Date(date);
+export function getUltraSrtNcstBase(date) {
+  let baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
   let hour = baseDate.getHours();
   let minute = baseDate.getMinutes();
 
@@ -73,11 +87,11 @@ export function getUltraSrtNcstBase(date = new Date()) {
 
 /**
  * 초단기예보 발표 시각 계산
- * @param {Date} date - 기준 날짜 (기본값: 현재)
+ * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
-export function getUltraSrtFcstBase(date = new Date()) {
-  let baseDate = new Date(date);
+export function getUltraSrtFcstBase(date) {
+  let baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
   let hour = baseDate.getHours();
   let minute = baseDate.getMinutes();
 
@@ -95,11 +109,11 @@ export function getUltraSrtFcstBase(date = new Date()) {
 
 /**
  * 단기예보 발표 시각 계산
- * @param {Date} date - 기준 날짜 (기본값: 현재)
+ * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
-export function getVilageFcstBase(date = new Date()) {
-  const baseDate = new Date(date);
+export function getVilageFcstBase(date) {
+  const baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
   const hour = baseDate.getHours();
 
   // 발표 시각: 02, 05, 08, 11, 14, 17, 20, 23시
@@ -159,16 +173,18 @@ export function formatKoreanDateTime(date) {
  * @returns {string} 상대 시간 문자열
  */
 export function getRelativeTime(date) {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - date) / 1000);
+  const now = getKSTNow();
+  const kstDate = toZonedTime(date, KST_TIMEZONE);
+  const diffInSeconds = Math.floor((now - kstDate) / 1000);
 
   if (diffInSeconds < 60) return '방금 전';
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}분 전`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}시간 전`;
-  return formatKoreanDate(date, 'MM월 dd일');
+  return formatKoreanDate(kstDate, 'MM월 dd일');
 }
 
 export default {
+  getKSTNow,
   formatDateToKMA,
   formatTimeToKMA,
   parseKMADate,

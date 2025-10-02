@@ -25,7 +25,19 @@ const WidgetLoader = () => (
   </div>
 )
 
-const queryClient = new QueryClient()
+// QueryClient 설정 - 안정적인 오류 처리
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000,
+      onError: (error) => {
+        console.warn('Query error:', error);
+      },
+    },
+  },
+})
 
 function AppContent() {
   const { isDark, toggleTheme } = useTheme();

@@ -31,10 +31,21 @@
               console.log('Service Worker 등록 성공:', registration.scope);
             })
             .catch((error) => {
-              console.log('Service Worker 등록 실패:', error);
+              // Service Worker 등록 실패해도 앱은 정상 작동
+              console.warn('Service Worker 등록 실패 (무시 가능):', error);
             });
         });
       }
+
+      // 디버깅: root 엘리먼트 확인
+      window.addEventListener('DOMContentLoaded', () => {
+        const root = document.getElementById('root');
+        if (!root) {
+          console.error('Root element not found!');
+        } else {
+          console.log('Root element found, app should load...');
+        }
+      });
     </script>
   </body>
 </html>

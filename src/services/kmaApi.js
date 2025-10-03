@@ -96,22 +96,26 @@ export const getUltraSrtNcst = async (options = {}) => {
   } catch (error) {
     console.error('초단기실황 조회 오류:', error);
 
-    // API 키 문제 또는 개발 환경에서 목업 데이터 사용
-    if (API_KEY === 'demo_key') {
-      console.warn('⚠️ 기상청 API 키 문제 감지 - 목업 데이터로 전환');
-      console.warn('실제 데이터를 보려면 Cloudflare Pages 환경변수 VITE_KMA_API_KEY를 설정하세요');
-      return getMockUltraSrtNcst();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: null,
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
 
-    if (import.meta.env.DEV || error.response?.status === 401 || error.response?.data?.response?.header?.resultCode === '03') {
-      console.log('개발 모드 또는 데이터 없음: 목업 데이터 사용');
-      return getMockUltraSrtNcst();
+    if (error.response?.data?.response?.header?.resultCode === '03') {
+      return {
+        success: false,
+        data: null,
+        message: 'KMA API 데이터 없음 (03): 요청 시간이 올바른지 확인하세요 (기준시간 문제 가능성)'
+      };
     }
 
     return {
       success: false,
       data: null,
-      message: error.message || '초단기실황 조회 중 오류가 발생했습니다.'
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '초단기실황 조회 중 오류가 발생했습니다.'
     };
   }
 };
@@ -153,14 +157,18 @@ export const getUltraSrtFcst = async (options = {}) => {
   } catch (error) {
     console.error('초단기예보 조회 오류:', error);
 
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockUltraSrtFcst();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: [],
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
 
     return {
       success: false,
       data: [],
-      message: error.message || '초단기예보 조회 중 오류가 발생했습니다.'
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '초단기예보 조회 중 오류가 발생했습니다.'
     };
   }
 };
@@ -202,14 +210,18 @@ export const getVilageFcst = async (options = {}) => {
   } catch (error) {
     console.error('단기예보 조회 오류:', error);
 
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockVilageFcst();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: [],
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
 
     return {
       success: false,
       data: [],
-      message: error.message || '단기예보 조회 중 오류가 발생했습니다.'
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '단기예보 조회 중 오류가 발생했습니다.'
     };
   }
 };
@@ -246,14 +258,18 @@ export const getWeatherWarning = async (stnId = '109') => {
   } catch (error) {
     console.error('기상특보 조회 오류:', error);
 
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockWeatherWarning();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: [],
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
 
     return {
       success: false,
       data: [],
-      message: error.message || '기상특보 조회 중 오류가 발생했습니다.'
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '기상특보 조회 중 오류가 발생했습니다.'
     };
   }
 };
@@ -290,14 +306,18 @@ export const getWeatherWarningMsg = async (stnId = '109') => {
   } catch (error) {
     console.error('기상특보 통보문 조회 오류:', error);
 
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockWeatherWarningMsg();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: [],
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
 
     return {
       success: false,
       data: [],
-      message: error.message || '기상특보 통보문 조회 중 오류가 발생했습니다.'
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '기상특보 통보문 조회 중 오류가 발생했습니다.'
     };
   }
 };
@@ -512,10 +532,20 @@ export const getMidTa = async (regId = '11B00000') => {
     }
   } catch (error) {
     console.error('중기기온예보 오류:', error);
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockMidTa();
+
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: null,
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
-    return { success: false, data: null, message: error.message };
+
+    return {
+      success: false,
+      data: null,
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '중기기온예보 조회 중 오류가 발생했습니다.'
+    };
   }
 };
 
@@ -549,10 +579,20 @@ export const getMidLandFcst = async (regId = '11B00000') => {
     }
   } catch (error) {
     console.error('중기육상예보 오류:', error);
-    if (import.meta.env.DEV || API_KEY === 'demo_key') {
-      return getMockMidLandFcst();
+
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: null,
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
     }
-    return { success: false, data: null, message: error.message };
+
+    return {
+      success: false,
+      data: null,
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '중기육상예보 조회 중 오류가 발생했습니다.'
+    };
   }
 };
 

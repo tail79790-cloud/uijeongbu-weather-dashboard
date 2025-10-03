@@ -1,59 +1,170 @@
 import axios from 'axios';
 
-// 한강홍수통제소 API 설정
-const API_KEY = import.meta.env.VITE_HANRIVER_API_KEY || 'sample_key';
-const BASE_URL = '/api/hanriver'; // Vite 프록시를 통한 요청
+// 한강홍수통제소 API 설정 (새 엔드포인트)
+const SERVICE_KEY = import.meta.env.VITE_HANRIVER_API_KEY || '52832662-D130-4239-9C5F-730AD3BE6BC6';
+const BASE_URL = import.meta.env.VITE_HANRIVER_BASE_URL || 'https://api.hrfco.go.kr';
+
+// 의정부 관측소 코드
+const UIJEONGBU_STATIONS = {
+  SINGOK: '1018665',  // 신곡교 (메인)
+  GEUMSHIN: '1018666' // 금신교 (보조)
+};
+
+// 수위 경보 기준 (신곡교 기준)
+const WATER_LEVEL_THRESHOLDS = {
+  ATTENTION: 2.5,  // 관심 수위
+  CAUTION: 5.1,    // 주의 수위 (경보)
+  WARNING: 6.0,    // 경계 수위 (위험)
+  DANGER: 6.5      // 심각 수위 (홍수)
+};
 
 // API 인스턴스 생성
 const hanRiverApi = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
+    'Accept': 'application/xml',
   },
 });
 
-// 응답 인터셉터 - 에러 처리
+// 응답 인터셉터
 hanRiverApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API 요청 오류:', error);
+    console.error('한강홍수통제소 API 요청 오류:', error);
     return Promise.reject(error);
   }
 );
 
-// 날짜 포맷팅 유틸리티
-const formatDate = (date = new Date()) => {
-  return date.toISOString().slice(0, 10).replace(/-/g, '');
+// 날짜/시간 포맷팅 유틸리티
+const formatDateTime = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}${month}${day}${hours}${minutes}`;
 };
 
-// 한강 홍수통제소 실시간 수위 데이터 조회
-export const getWaterLevelData = async (stationCode = '') => {
+// XML을 JSON으로 파싱
+const parseXML = (xmlString) => {
   try {
-    const today = formatDate(new Date());
-    const yesterday = formatDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
-    // 수위 데이터 API 엔드포인트
-    const endpoint = `/getRealTimeWaterLevel`;
+    const waterlevels = xmlDoc.getElementsByTagName('Waterlevel');
+    const result = [];
 
-    const params = {
-      serviceKey: API_KEY,
-      pageNo: 1,
-      numOfRows: 100,
-      startDt: yesterday,
-      endDt: today,
-      stationCode: stationCode || '', // 빈 문자열이면 전체 조회
+    for (let i = 0; i < waterlevels.length; i++) {
+      const item = waterlevels[i];
+      const fw = item.getElementsByTagName('fw')[0]?.textContent?.trim();
+      const wl = item.getElementsByTagName('wl')[0]?.textContent?.trim();
+      const wlobscd = item.getElementsByTagName('wlobscd')[0]?.textContent?.trim();
+      const ymdhm = item.getElementsByTagName('ymdhm')[0]?.textContent?.trim();
+
+      // 데이터가 있는 경우만 추가
+      if (fw && wl) {
+        result.push({
+          waterLevel: parseFloat(fw),  // 수위 (m)
+          flowRate: parseFloat(wl),    // 유량 (㎥/s)
+          stationCode: wlobscd,
+          observedAt: ymdhm
+        });
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('XML 파싱 오류:', error);
+    return [];
+  }
+};
+
+// 수위 상태 계산
+const calculateWaterLevelStatus = (waterLevel) => {
+  if (waterLevel >= WATER_LEVEL_THRESHOLDS.DANGER) {
+    return {
+      level: 'danger',
+      text: '심각',
+      color: 'red',
+      description: '홍수 위험 - 즉시 대피 필요'
     };
+  } else if (waterLevel >= WATER_LEVEL_THRESHOLDS.WARNING) {
+    return {
+      level: 'warning',
+      text: '경계',
+      color: 'orange',
+      description: '위험 수위 - 주의 필요'
+    };
+  } else if (waterLevel >= WATER_LEVEL_THRESHOLDS.CAUTION) {
+    return {
+      level: 'caution',
+      text: '주의',
+      color: 'yellow',
+      description: '경보 수위 - 상황 주시'
+    };
+  } else if (waterLevel >= WATER_LEVEL_THRESHOLDS.ATTENTION) {
+    return {
+      level: 'attention',
+      text: '관심',
+      color: 'blue',
+      description: '관심 수위 - 평상시 관리'
+    };
+  } else {
+    return {
+      level: 'normal',
+      text: '정상',
+      color: 'green',
+      description: '정상 수위'
+    };
+  }
+};
 
-    console.log('수위 데이터 요청:', endpoint, params);
+// 의정부 수위 데이터 조회
+export const getUijeongbuWaterLevel = async (stationCode = UIJEONGBU_STATIONS.SINGOK) => {
+  try {
+    const now = new Date();
+    const endTime = formatDateTime(now);
 
-    const response = await hanRiverApi.get(endpoint, { params });
+    // 30분 전부터 현재까지 데이터 조회
+    const startDate = new Date(now.getTime() - 30 * 60 * 1000);
+    const startTime = formatDateTime(startDate);
 
-    // XML 응답을 파싱하여 JSON으로 변환 (실제 API는 XML 응답)
+    console.log('수위 데이터 요청:', {
+      stationCode,
+      startTime,
+      endTime
+    });
+
+    const endpoint = `/${SERVICE_KEY}/waterlevel/list/10M/${stationCode}/${startTime}/${endTime}.xml`;
+
+    const response = await hanRiverApi.get(endpoint);
+
     if (response.data) {
+      const waterLevelData = parseXML(response.data);
+
+      if (waterLevelData.length === 0) {
+        throw new Error('수위 데이터가 없습니다');
+      }
+
+      // 가장 최근 데이터 선택
+      const latestData = waterLevelData[0];
+      const status = calculateWaterLevelStatus(latestData.waterLevel);
+
+      // 경보까지 여유 계산
+      const remainingToWarning = (WATER_LEVEL_THRESHOLDS.CAUTION - latestData.waterLevel).toFixed(2);
+
       return {
         success: true,
-        data: parseWaterLevelResponse(response.data),
+        data: {
+          ...latestData,
+          status,
+          thresholds: WATER_LEVEL_THRESHOLDS,
+          remainingToWarning: parseFloat(remainingToWarning),
+          stationName: stationCode === UIJEONGBU_STATIONS.SINGOK ? '신곡교' : '금신교',
+          location: '의정부시 (중랑천)'
+        },
         message: '수위 데이터 조회 성공'
       };
     } else {
@@ -62,304 +173,87 @@ export const getWaterLevelData = async (stationCode = '') => {
   } catch (error) {
     console.error('수위 데이터 조회 오류:', error);
 
-    // 개발 환경에서는 목업 데이터 반환
-    if (import.meta.env.DEV) {
-      return getMockWaterLevelData();
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: null,
+        message: '한강홍수통제소 API 연결 실패: 네트워크를 확인하세요'
+      };
     }
 
     return {
       success: false,
-      data: [],
+      data: null,
       message: error.message || '수위 데이터 조회 중 오류가 발생했습니다.'
     };
   }
 };
 
-// 강수량 데이터 조회
-export const getRainfallData = async (stationCode = '') => {
+// 관측소 정보 조회
+export const getStationInfo = async () => {
   try {
-    const today = formatDate(new Date());
-    const yesterday = formatDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
-
-    const endpoint = `/getRealTimeRainfall`;
-
-    const params = {
-      serviceKey: API_KEY,
-      pageNo: 1,
-      numOfRows: 100,
-      startDt: yesterday,
-      endDt: today,
-      stationCode: stationCode || '',
-    };
-
-    console.log('강수량 데이터 요청:', endpoint, params);
-
-    const response = await hanRiverApi.get(endpoint, { params });
+    const endpoint = `/${SERVICE_KEY}/waterlevel/info.xml`;
+    const response = await hanRiverApi.get(endpoint);
 
     if (response.data) {
+      // XML 파싱하여 의정부 관측소만 필터링
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(response.data, 'text/xml');
+      const stations = xmlDoc.getElementsByTagName('WaterlevelInfo');
+      const uijeongbuStations = [];
+
+      for (let i = 0; i < stations.length; i++) {
+        const addr = stations[i].getElementsByTagName('addr')[0]?.textContent;
+        const wlobscd = stations[i].getElementsByTagName('wlobscd')[0]?.textContent;
+
+        if (addr && addr.includes('의정부')) {
+          uijeongbuStations.push({
+            code: wlobscd,
+            name: stations[i].getElementsByTagName('obsnm')[0]?.textContent,
+            address: addr,
+            location: stations[i].getElementsByTagName('etcaddr')[0]?.textContent,
+          });
+        }
+      }
+
       return {
         success: true,
-        data: parseRainfallResponse(response.data),
-        message: '강수량 데이터 조회 성공'
+        data: uijeongbuStations,
+        message: '관측소 정보 조회 성공'
       };
-    } else {
-      throw new Error('응답 데이터가 없습니다');
-    }
-  } catch (error) {
-    console.error('강수량 데이터 조회 오류:', error);
-
-    // 개발 환경에서는 목업 데이터 반환
-    if (import.meta.env.DEV) {
-      return getMockRainfallData();
     }
 
     return {
       success: false,
       data: [],
-      message: error.message || '강수량 데이터 조회 중 오류가 발생했습니다.'
+      message: '관측소 정보 조회 실패'
     };
-  }
-};
-
-// 홍수 특보 정보 조회
-export const getFloodWarning = async () => {
-  try {
-    const endpoint = `/getFloodWarning`;
-
-    const params = {
-      serviceKey: API_KEY,
-      pageNo: 1,
-      numOfRows: 10,
-    };
-
-    console.log('홍수 특보 요청:', endpoint, params);
-
-    const response = await hanRiverApi.get(endpoint, { params });
-
-    if (response.data) {
-      return {
-        success: true,
-        data: parseFloodWarningResponse(response.data),
-        message: '홍수 특보 정보 조회 성공'
-      };
-    } else {
-      throw new Error('응답 데이터가 없습니다');
-    }
   } catch (error) {
-    console.error('홍수 특보 조회 오류:', error);
-
-    // 개발 환경에서는 목업 데이터 반환
-    if (import.meta.env.DEV) {
-      return getMockFloodWarningData();
-    }
-
+    console.error('관측소 정보 조회 오류:', error);
     return {
       success: false,
       data: [],
-      message: error.message || '홍수 특보 조회 중 오류가 발생했습니다.'
+      message: error.message || '관측소 정보 조회 중 오류가 발생했습니다.'
     };
   }
-};
-
-// 의정부 지역 통합 데이터 조회
-export const getUijeongbuData = async () => {
-  try {
-    // 의정부 지역 관련 관측소 코드들 (실제 코드로 수정 필요)
-    const uijeongbuStations = ['1001', '1002', '1003']; // 예시 코드
-
-    console.log('의정부 지역 데이터 조회 시작');
-
-    // 병렬로 데이터 조회
-    const [rainfallResult, waterLevelResult, floodWarningResult] = await Promise.allSettled([
-      getRainfallData(uijeongbuStations[0]),
-      getWaterLevelData(uijeongbuStations[0]),
-      getFloodWarning()
-    ]);
-
-    return {
-      success: true,
-      data: {
-        rainfall: rainfallResult.status === 'fulfilled' ? rainfallResult.value.data : [],
-        waterLevel: waterLevelResult.status === 'fulfilled' ? waterLevelResult.value.data : [],
-        floodWarning: floodWarningResult.status === 'fulfilled' ? floodWarningResult.value.data : []
-      },
-      message: '의정부 지역 데이터 조회 완료'
-    };
-  } catch (error) {
-    console.error('의정부 지역 데이터 조회 오류:', error);
-    return {
-      success: false,
-      data: {
-        rainfall: [],
-        waterLevel: [],
-        floodWarning: []
-      },
-      message: error.message || '의정부 지역 데이터 조회 중 오류가 발생했습니다.'
-    };
-  }
-};
-
-// 응답 파싱 함수들 (XML을 JSON으로 변환)
-const parseWaterLevelResponse = (xmlData) => {
-  // 실제로는 XML 파서 라이브러리를 사용해야 함
-  // 여기서는 간단한 목업 데이터 반환
-  return getMockWaterLevelData().data;
-};
-
-const parseRainfallResponse = (xmlData) => {
-  // 실제로는 XML 파서 라이브러리를 사용해야 함
-  return getMockRainfallData().data;
-};
-
-const parseFloodWarningResponse = (xmlData) => {
-  // 실제로는 XML 파서 라이브러리를 사용해야 함
-  return getMockFloodWarningData().data;
-};
-
-// 목업 데이터 함수들 (개발/테스트용)
-const getMockWaterLevelData = () => ({
-  success: true,
-  data: [
-    {
-      stationName: '의정부 수위관측소',
-      waterLevel: 2.45,
-      warningLevel1: 3.0,
-      warningLevel2: 4.0,
-      warningLevel3: 5.0,
-      measureTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      lat: 37.738,
-      lon: 127.034
-    },
-    {
-      stationName: '중랑천 수위관측소',
-      waterLevel: 1.85,
-      warningLevel1: 2.5,
-      warningLevel2: 3.5,
-      warningLevel3: 4.5,
-      measureTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      lat: 37.741,
-      lon: 127.037
-    }
-  ],
-  message: '목업 수위 데이터'
-});
-
-const getMockRainfallData = () => ({
-  success: true,
-  data: [
-    {
-      stationName: '의정부 강수관측소',
-      rainfall1h: 2.5,
-      rainfall3h: 5.2,
-      rainfall6h: 8.7,
-      rainfall12h: 12.3,
-      rainfall24h: 18.6,
-      measureTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      lat: 37.738,
-      lon: 127.034
-    },
-    {
-      stationName: '도봉산 강수관측소',
-      rainfall1h: 3.1,
-      rainfall3h: 6.8,
-      rainfall6h: 11.2,
-      rainfall12h: 15.7,
-      rainfall24h: 22.4,
-      measureTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      lat: 37.728,
-      lon: 127.012
-    }
-  ],
-  message: '목업 강수량 데이터'
-});
-
-const getMockFloodWarningData = () => ({
-  success: true,
-  data: [
-    {
-      title: '중랑천 수위상승 주의보',
-      content: '지속적인 강우로 인해 중랑천 수위가 상승하고 있습니다. 인근 지역 주민들은 주의하시기 바랍니다.',
-      level: 'caution',
-      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      area: '의정부시, 도봉구'
-    }
-  ],
-  message: '목업 홍수 특보 데이터'
-});
-
-// 데이터 처리 유틸리티 함수들
-export const processRainfallData = (data) => {
-  if (!Array.isArray(data)) return [];
-
-  return data.map(item => ({
-    stationName: item.stationName || item.SITE_NAME || '관측소명 없음',
-    rainfall1h: parseFloat(item.rainfall1h || item.RF_1H) || 0,
-    rainfall3h: parseFloat(item.rainfall3h || item.RF_3H) || 0,
-    rainfall6h: parseFloat(item.rainfall6h || item.RF_6H) || 0,
-    rainfall12h: parseFloat(item.rainfall12h || item.RF_12H) || 0,
-    rainfall24h: parseFloat(item.rainfall24h || item.RF_24H) || 0,
-    measureTime: item.measureTime || item.MSR_DT || new Date().toISOString(),
-    lat: parseFloat(item.lat || item.LAT) || 0,
-    lon: parseFloat(item.lon || item.LON) || 0
-  }));
-};
-
-export const processWaterLevelData = (data) => {
-  if (!Array.isArray(data)) return [];
-
-  return data.map(item => ({
-    stationName: item.stationName || item.SITE_NAME || '관측소명 없음',
-    waterLevel: parseFloat(item.waterLevel || item.WL) || 0,
-    warningLevel1: parseFloat(item.warningLevel1 || item.WRN_LEV1) || 0,
-    warningLevel2: parseFloat(item.warningLevel2 || item.WRN_LEV2) || 0,
-    warningLevel3: parseFloat(item.warningLevel3 || item.WRN_LEV3) || 0,
-    measureTime: item.measureTime || item.MSR_DT || new Date().toISOString(),
-    lat: parseFloat(item.lat || item.LAT) || 0,
-    lon: parseFloat(item.lon || item.LON) || 0
-  }));
-};
-
-// 위험도 계산 함수
-export const calculateRiskLevel = (rainfall24h, waterLevel, warningLevels) => {
-  let riskScore = 0;
-
-  // 강수량 위험도 (24시간 누적)
-  if (rainfall24h >= 100) riskScore += 3;
-  else if (rainfall24h >= 50) riskScore += 2;
-  else if (rainfall24h >= 20) riskScore += 1;
-
-  // 수위 위험도
-  if (waterLevel >= warningLevels.level3) riskScore += 3;
-  else if (waterLevel >= warningLevels.level2) riskScore += 2;
-  else if (waterLevel >= warningLevels.level1) riskScore += 1;
-
-  // 위험도 레벨 반환
-  if (riskScore >= 5) return { level: 'danger', text: '위험', color: 'red' };
-  if (riskScore >= 3) return { level: 'caution', text: '주의', color: 'yellow' };
-  if (riskScore >= 1) return { level: 'watch', text: '관심', color: 'blue' };
-  return { level: 'safe', text: '안전', color: 'green' };
 };
 
 // 환경 변수 확인 함수
 export const checkApiConfiguration = () => {
   const config = {
-    apiKey: !!API_KEY && API_KEY !== 'sample_key',
+    serviceKey: !!SERVICE_KEY && SERVICE_KEY !== 'sample_key',
     baseUrl: BASE_URL,
-    isDev: import.meta.env.DEV,
-    mode: import.meta.env.MODE
+    stations: UIJEONGBU_STATIONS
   };
 
-  console.log('API 설정 상태:', config);
+  console.log('한강홍수통제소 API 설정 상태:', config);
   return config;
 };
 
 export default {
-  getWaterLevelData,
-  getRainfallData,
-  getFloodWarning,
-  getUijeongbuData,
-  processRainfallData,
-  processWaterLevelData,
-  calculateRiskLevel,
-  checkApiConfiguration
+  getUijeongbuWaterLevel,
+  getStationInfo,
+  checkApiConfiguration,
+  UIJEONGBU_STATIONS,
+  WATER_LEVEL_THRESHOLDS
 };

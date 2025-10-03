@@ -1,5 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+// Tree-shaking 최적화: 필요한 컴포넌트만 import
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart
+} from 'recharts/lib';
 import { getUltraSrtFcst, getVilageFcst } from '../../services/kmaApi';
 import { formatKoreanTime } from '../../utils/dateFormatter';
 import WidgetCard from '../common/WidgetCard';

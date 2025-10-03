@@ -38,9 +38,31 @@ kmaApi.interceptors.response.use(
 );
 
 /**
- * 초단기실황 조회 (현재 관측 데이터)
- * @param {Object} options - 옵션 {lat, lng, nx, ny}
- * @returns {Promise<Object>} 실황 데이터
+ * 초단기실황 조회 - 현재 시각 기준 실시간 관측 데이터
+ *
+ * @async
+ * @param {Object} [options] - 조회 옵션
+ * @param {number} [options.nx=61] - 격자 X 좌표 (의정부 기본값)
+ * @param {number} [options.ny=127] - 격자 Y 좌표 (의정부 기본값)
+ * @returns {Promise<{success: boolean, data: Object|null, message: string}>} API 응답
+ * @returns {boolean} return.success - 성공 여부
+ * @returns {Object|null} return.data - 실황 데이터 (온도, 습도, 풍속 등)
+ * @returns {string} return.message - 응답 메시지
+ *
+ * @throws {Error} API 호출 실패 시 (네트워크 오류, 인증 오류 등)
+ *
+ * @example
+ * // 의정부 기본 좌표로 조회
+ * const data = await getUltraSrtNcst();
+ *
+ * @example
+ * // 특정 좌표로 조회
+ * const data = await getUltraSrtNcst({ nx: 60, ny: 127 });
+ *
+ * @description
+ * - 발표 주기: 매시각 40분 (10분 단위 업데이트)
+ * - 조회 가능 항목: 기온(T1H), 습도(REH), 강수량(RN1), 풍속(WSD) 등
+ * - 개발 모드에서는 API 키 없이 Mock 데이터 반환
  */
 export const getUltraSrtNcst = async (options = {}) => {
   try {

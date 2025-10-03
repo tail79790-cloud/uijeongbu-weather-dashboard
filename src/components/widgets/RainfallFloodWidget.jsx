@@ -249,23 +249,52 @@ const RainfallFloodWidget = () => {
 
   const waterData = selectedStation === 'singok' ? singokData : geumshinData;
 
+  // 에러 상태 상세 정보
+  const errorInfo = singokError || geumshinError;
+  const errorMessage = errorInfo?.response?.data?.message ||
+                       errorInfo?.message ||
+                       '알 수 없는 오류가 발생했습니다';
+
   if (error) {
+    console.log('==== RainfallFloodWidget 에러 표시 ====');
+    console.log('신곡교 에러:', singokError);
+    console.log('금신교 에러:', geumshinError);
+    console.log('표시할 에러 메시지:', errorMessage);
+    console.log('=====================================');
+
     return (
-      <div className="weather-card status-danger">
+      <div className="weather-card">
         <div className="weather-card-header">
-          <span>강수량 & 홍수 정보</span>
+          <span>중랑천 수위 정보</span>
           <RefreshButton onRefresh={refetch} isLoading={isLoading} />
         </div>
-        <div className="text-center py-8 text-red-600">
-          <AlertIcon className="w-12 h-12 mx-auto mb-4" />
-          <p className="font-medium">데이터를 불러올 수 없습니다</p>
-          <p className="text-sm mt-2">{error.message}</p>
-          <button
-            onClick={refetch}
-            className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-          >
-            다시 시도
-          </button>
+        <div className="p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <AlertIcon className="w-12 h-12 mx-auto mb-4 text-red-500" />
+            <p className="font-medium text-red-800 mb-2">수위 데이터를 불러올 수 없습니다</p>
+            <p className="text-sm text-red-600 mb-4">{errorMessage}</p>
+
+            {/* 디버깅 정보 */}
+            <details className="text-left bg-white rounded p-3 mb-4">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700">
+                기술 정보 (개발자용)
+              </summary>
+              <div className="mt-2 text-xs text-gray-600 space-y-1">
+                <p>• 신곡교 상태: {singokError ? '에러' : '정상'}</p>
+                <p>• 금신교 상태: {geumshinError ? '에러' : '정상'}</p>
+                <p>• API 엔드포인트: /api/hanriver/[SERVICE_KEY]/waterlevel/list/10M/...</p>
+                <p>• 브라우저 콘솔(F12)에서 상세 로그를 확인하세요</p>
+              </div>
+            </details>
+
+            <button
+              onClick={refetch}
+              disabled={isLoading}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? '재시도 중...' : '다시 시도'}
+            </button>
+          </div>
         </div>
       </div>
     );

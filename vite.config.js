@@ -35,11 +35,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 한강홍수통제소 API 프록시
+      // 한강홍수통제소 API 프록시 (새 API 엔드포인트)
       '/api/hanriver': {
-        target: 'http://apis.data.go.kr',
+        target: 'https://api.hrfco.go.kr',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/hanriver/, '/B500001/rwis/waterLevel/list'),
+        rewrite: (path) => path.replace(/^\/api\/hanriver/, ''),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
             console.log('한강홍수통제소 API 요청:', req.url);

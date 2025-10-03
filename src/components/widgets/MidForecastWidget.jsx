@@ -19,14 +19,17 @@ const DayCard = ({ day, temp, weather }) => {
     return '🌤️';
   };
 
+  // 유효한 날짜인지 확인
+  const isValidDate = day && !isNaN(new Date(day).getTime());
+
   return (
     <div className="bg-white rounded-lg p-3 border border-gray-200">
       <div className="text-center mb-2">
         <div className="text-sm font-semibold text-gray-700">
-          {format(day, 'MM/dd')}
+          {isValidDate ? format(day, 'MM/dd') : '-'}
         </div>
         <div className="text-xs text-gray-500">
-          {format(day, 'EEE', { locale: ko })}
+          {isValidDate ? format(day, 'EEE', { locale: ko }) : '-'}
         </div>
       </div>
 
@@ -48,9 +51,13 @@ const DayCard = ({ day, temp, weather }) => {
       </div>
 
       <div className="flex justify-between text-sm pt-2 border-t">
-        <span className="text-blue-500 font-semibold">{Math.round(temp?.min)}°</span>
+        <span className="text-blue-500 font-semibold">
+          {temp?.min !== undefined ? Math.round(temp.min) : '-'}°
+        </span>
         <span className="text-gray-400">/</span>
-        <span className="text-red-500 font-semibold">{Math.round(temp?.max)}°</span>
+        <span className="text-red-500 font-semibold">
+          {temp?.max !== undefined ? Math.round(temp.max) : '-'}°
+        </span>
       </div>
     </div>
   );

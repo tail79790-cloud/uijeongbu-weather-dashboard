@@ -63,8 +63,8 @@ const AlertCard = ({ warning, message }) => {
         <span className="text-xs font-medium">
           {warning.tmFc ? formatKoreanDateTime(
             parseKMADateTime(
-              warning.tmFc.slice(0, 8),  // YYYYMMDD
-              warning.tmFc.slice(8, 12)  // HHmm
+              String(warning.tmFc).slice(0, 8),  // YYYYMMDD
+              String(warning.tmFc).slice(8, 12)  // HHmm
             )
           ) : '발효 중'}
         </span>

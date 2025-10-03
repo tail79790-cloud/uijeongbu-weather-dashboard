@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 한강홍수통제소 API 설정 (새 엔드포인트)
 const SERVICE_KEY = import.meta.env.VITE_HANRIVER_API_KEY || '52832662-D130-4239-9C5F-730AD3BE6BC6';
-const BASE_URL = import.meta.env.VITE_HANRIVER_BASE_URL || 'https://api.hrfco.go.kr';
+const BASE_URL = '/api/hanriver'; // Vite 프록시를 통한 요청
 
 // 의정부 관측소 코드
 const UIJEONGBU_STATIONS = {
@@ -50,10 +50,24 @@ const formatDateTime = (date = new Date()) => {
 // XML을 JSON으로 파싱
 const parseXML = (xmlString) => {
   try {
+    console.log('==== XML 파싱 시작 ====');
+    console.log('XML 길이:', xmlString?.length || 0);
+    console.log('XML 첫 100자:', xmlString?.substring(0, 100));
+
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
+    // XML 파싱 에러 확인
+    const parserError = xmlDoc.querySelector('parsererror');
+    if (parserError) {
+      console.error('XML 파싱 실패:', parserError.textContent);
+      console.error('원본 XML:', xmlString);
+      throw new Error('XML 파싱 실패: 잘못된 XML 형식');
+    }
+
     const waterlevels = xmlDoc.getElementsByTagName('Waterlevel');
+    console.log('Waterlevel 태그 개수:', waterlevels.length);
+
     const result = [];
 
     for (let i = 0; i < waterlevels.length; i++) {
@@ -62,6 +76,8 @@ const parseXML = (xmlString) => {
       const wl = item.getElementsByTagName('wl')[0]?.textContent?.trim();
       const wlobscd = item.getElementsByTagName('wlobscd')[0]?.textContent?.trim();
       const ymdhm = item.getElementsByTagName('ymdhm')[0]?.textContent?.trim();
+
+      console.log(`항목 ${i}:`, { fw, wl, wlobscd, ymdhm });
 
       // 데이터가 있는 경우만 추가
       if (fw && wl) {
@@ -74,9 +90,15 @@ const parseXML = (xmlString) => {
       }
     }
 
+    console.log('파싱 결과 개수:', result.length);
+    console.log('=====================');
+
     return result;
   } catch (error) {
-    console.error('XML 파싱 오류:', error);
+    console.error('==== XML 파싱 오류 ====');
+    console.error('에러:', error);
+    console.error('XML 원본:', xmlString);
+    console.error('======================');
     return [];
   }
 };
@@ -171,13 +193,38 @@ export const getUijeongbuWaterLevel = async (stationCode = UIJEONGBU_STATIONS.SI
       throw new Error('응답 데이터가 없습니다');
     }
   } catch (error) {
-    console.error('수위 데이터 조회 오류:', error);
+    console.error('==== 수위 데이터 조회 오류 ====');
+    console.error('에러 타입:', error.code);
+    console.error('에러 메시지:', error.message);
+    console.error('API 응답 상태:', error.response?.status);
+    console.error('API 응답 데이터:', error.response?.data);
+    console.error('요청 URL:', error.config?.url);
+    console.error('================================');
 
+    // 네트워크 에러
     if (error.code === 'ERR_NETWORK') {
       return {
         success: false,
         data: null,
         message: '한강홍수통제소 API 연결 실패: 네트워크를 확인하세요'
+      };
+    }
+
+    // HTTP 에러 (404, 401, 500 등)
+    if (error.response) {
+      const status = error.response.status;
+      const statusMessages = {
+        400: 'API 요청 형식 오류 (400): 파라미터를 확인하세요',
+        401: 'API 인증 실패 (401): API 키를 확인하세요',
+        403: 'API 접근 거부 (403): 권한을 확인하세요',
+        404: 'API 엔드포인트를 찾을 수 없음 (404): URL을 확인하세요',
+        500: 'API 서버 오류 (500): 잠시 후 다시 시도하세요'
+      };
+
+      return {
+        success: false,
+        data: null,
+        message: statusMessages[status] || `API 오류 (${status}): ${error.message}`
       };
     }
 

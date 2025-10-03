@@ -222,15 +222,32 @@ const FloodWarning = ({ data }) => {
 
 // 메인 위젯 컴포넌트
 const RainfallFloodWidget = () => {
-  const [selectedTab, setSelectedTab] = useState('water');
+  const [selectedStation, setSelectedStation] = useState('singok');
 
-  // 수위 데이터 조회
-  const { data: waterData, isLoading, error, refetch } = useQuery({
-    queryKey: ['uijeongbu-water-level'],
-    queryFn: () => getUijeongbuWaterLevel(),
-    refetchInterval: 5 * 60 * 1000, // 5분마다 자동 새로고침
-    staleTime: 2 * 60 * 1000, // 2분간 캐시 유지
+  // 신곡교 수위 데이터
+  const { data: singokData, isLoading: singokLoading, error: singokError, refetch: refetchSingok } = useQuery({
+    queryKey: ['water-level', 'singok'],
+    queryFn: () => getUijeongbuWaterLevel('1018665'),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
+
+  // 금신교 수위 데이터
+  const { data: geumshinData, isLoading: geumshinLoading, error: geumshinError, refetch: refetchGeumshin } = useQuery({
+    queryKey: ['water-level', 'geumshin'],
+    queryFn: () => getUijeongbuWaterLevel('1018666'),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const isLoading = singokLoading || geumshinLoading;
+  const error = singokError || geumshinError;
+  const refetch = () => {
+    refetchSingok();
+    refetchGeumshin();
+  };
+
+  const waterData = selectedStation === 'singok' ? singokData : geumshinData;
 
   if (error) {
     return (
@@ -262,13 +279,37 @@ const RainfallFloodWidget = () => {
       </div>
 
       <div className="space-y-6">
+        {/* 관측소 선택 탭 */}
+        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+          <button
+            onClick={() => setSelectedStation('singok')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              selectedStation === 'singok'
+                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+            }`}
+          >
+            신곡교
+          </button>
+          <button
+            onClick={() => setSelectedStation('geumshin')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              selectedStation === 'geumshin'
+                ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+            }`}
+          >
+            금신교
+          </button>
+        </div>
+
         {/* 컨텐츠 */}
         <div className="min-h-[300px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-500">수위 데이터를 불러오는 중...</p>
+                <p className="text-gray-500 dark:text-gray-400">수위 데이터를 불러오는 중...</p>
               </div>
             </div>
           ) : (
@@ -277,7 +318,7 @@ const RainfallFloodWidget = () => {
         </div>
 
         {/* 마지막 업데이트 시간 */}
-        <div className="text-xs text-gray-500 text-center border-t pt-4">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-center border-t dark:border-gray-700 pt-4">
           마지막 업데이트: {format(new Date(), 'yyyy-MM-dd HH:mm:ss', { locale: ko })}
         </div>
       </div>

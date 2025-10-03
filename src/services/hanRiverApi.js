@@ -250,6 +250,9 @@ export const checkApiConfiguration = () => {
   return config;
 };
 
+// Named exports
+export { UIJEONGBU_STATIONS, WATER_LEVEL_THRESHOLDS };
+
 export default {
   getUijeongbuWaterLevel,
   getStationInfo,

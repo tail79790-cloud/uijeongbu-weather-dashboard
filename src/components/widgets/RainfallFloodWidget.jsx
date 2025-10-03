@@ -3,10 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import {
-  getUijeongbuData,
-  processRainfallData,
-  processWaterLevelData,
-  calculateRiskLevel
+  getUijeongbuWaterLevel,
+  WATER_LEVEL_THRESHOLDS
 } from '../../services/hanRiverApi';
 import RiskGauge from '../common/RiskGauge';
 import RiskBadge from '../common/RiskBadge';
@@ -110,7 +108,7 @@ const RainfallInfo = ({ data }) => {
 
 // 수위 정보 컴포넌트
 const WaterLevelInfo = ({ data }) => {
-  if (!data || data.length === 0) {
+  if (!data) {
     return (
       <div className="text-center py-4 text-gray-500">
         <WaterIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -119,20 +117,12 @@ const WaterLevelInfo = ({ data }) => {
     );
   }
 
-  const latest = data[0];
   const risk = calculateWaterLevelRisk({
-    current: latest.waterLevel,
-    watch: latest.warningLevel1,
-    caution: latest.warningLevel2,
-    danger: latest.warningLevel3,
+    current: data.waterLevel,
+    watch: WATER_LEVEL_THRESHOLDS.ATTENTION,
+    caution: WATER_LEVEL_THRESHOLDS.CAUTION,
+    danger: WATER_LEVEL_THRESHOLDS.DANGER,
   });
-
-  const getWaterLevelStatus = () => {
-    if (latest.waterLevel >= latest.warningLevel3) return '홍수위';
-    if (latest.waterLevel >= latest.warningLevel2) return '경계수위';
-    if (latest.waterLevel >= latest.warningLevel1) return '주의수위';
-    return '평상수위';
-  };
 
   return (
     <div className="space-y-4">
@@ -141,14 +131,14 @@ const WaterLevelInfo = ({ data }) => {
           <WaterIcon className="w-5 h-5 text-blue-500" />
           <h4 className="font-semibold text-gray-800">수위 정보</h4>
         </div>
-        <RiskBadge level={risk.level} text={risk.text} icon="🌊" />
+        <RiskBadge level={data.status.level} text={data.status.text} icon="🌊" />
       </div>
 
-      {/* 수위 게이지 추가 */}
+      {/* 수위 게이지 */}
       <RiskGauge
-        value={latest.waterLevel}
-        max={latest.warningLevel3}
-        level={risk.level}
+        value={data.waterLevel}
+        max={WATER_LEVEL_THRESHOLDS.DANGER}
+        level={data.status.level}
         label="현재 수위"
         showValues={true}
         showPercent={true}
@@ -156,29 +146,44 @@ const WaterLevelInfo = ({ data }) => {
 
       <div className="bg-gray-50 rounded-lg p-4">
         <div className="text-center mb-4">
-          <div className="weather-value-large text-blue-600">{latest.waterLevel.toFixed(2)}m</div>
-          <div className="weather-label">{getWaterLevelStatus()}</div>
+          <div className="weather-value-large text-blue-600">{data.waterLevel.toFixed(2)}m</div>
+          <div className="weather-label">{data.status.text} ({data.status.description})</div>
         </div>
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">홍수위</span>
-            <span className="text-sm font-medium text-red-600">{latest.warningLevel3.toFixed(2)}m</span>
+            <span className="text-sm text-gray-600">홍수위 (심각)</span>
+            <span className="text-sm font-medium text-red-600">{WATER_LEVEL_THRESHOLDS.DANGER.toFixed(2)}m</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">경계수위</span>
-            <span className="text-sm font-medium text-yellow-600">{latest.warningLevel2.toFixed(2)}m</span>
+            <span className="text-sm text-gray-600">경계수위 (위험)</span>
+            <span className="text-sm font-medium text-orange-600">{WATER_LEVEL_THRESHOLDS.WARNING.toFixed(2)}m</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">주의수위</span>
-            <span className="text-sm font-medium text-blue-600">{latest.warningLevel1.toFixed(2)}m</span>
+            <span className="text-sm text-gray-600">주의수위 (경보)</span>
+            <span className="text-sm font-medium text-yellow-600">{WATER_LEVEL_THRESHOLDS.CAUTION.toFixed(2)}m</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">관심수위</span>
+            <span className="text-sm font-medium text-blue-600">{WATER_LEVEL_THRESHOLDS.ATTENTION.toFixed(2)}m</span>
+          </div>
+        </div>
+
+        <div className="mt-4 p-3 bg-blue-50 rounded">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-700">경보까지 여유</span>
+            <span className="text-sm font-semibold text-blue-700">{data.remainingToWarning}m</span>
+          </div>
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-sm text-gray-700">유량</span>
+            <span className="text-sm font-semibold text-blue-700">{data.flowRate.toFixed(2)}㎥/s</span>
           </div>
         </div>
       </div>
 
       <div className="text-xs text-gray-500 flex items-center justify-between">
-        <span>{latest.stationName}</span>
-        <span>{latest.measureTime}</span>
+        <span>{data.stationName} ({data.location})</span>
+        <span>{data.observedAt}</span>
       </div>
     </div>
   );
@@ -217,25 +222,15 @@ const FloodWarning = ({ data }) => {
 
 // 메인 위젯 컴포넌트
 const RainfallFloodWidget = () => {
-  const [selectedTab, setSelectedTab] = useState('rainfall');
+  const [selectedTab, setSelectedTab] = useState('water');
 
-  // 데이터 조회
-  const { data: floodData, isLoading, error, refetch } = useQuery({
-    queryKey: ['uijeongbu-flood-data'],
-    queryFn: getUijeongbuData,
+  // 수위 데이터 조회
+  const { data: waterData, isLoading, error, refetch } = useQuery({
+    queryKey: ['uijeongbu-water-level'],
+    queryFn: () => getUijeongbuWaterLevel(),
     refetchInterval: 5 * 60 * 1000, // 5분마다 자동 새로고침
     staleTime: 2 * 60 * 1000, // 2분간 캐시 유지
   });
-
-  const processedData = React.useMemo(() => {
-    if (!floodData?.success) return null;
-
-    return {
-      rainfall: processRainfallData(floodData.data.rainfall),
-      waterLevel: processWaterLevelData(floodData.data.waterLevel),
-      floodWarning: floodData.data.floodWarning
-    };
-  }, [floodData]);
 
   if (error) {
     return (
@@ -262,66 +257,22 @@ const RainfallFloodWidget = () => {
   return (
     <div className="weather-card">
       <div className="weather-card-header">
-        <span>강수량 & 홍수 정보</span>
+        <span>중랑천 수위 정보</span>
         <RefreshButton onRefresh={refetch} isLoading={isLoading} />
       </div>
 
       <div className="space-y-6">
-        {/* 탭 메뉴 */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => setSelectedTab('rainfall')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              selectedTab === 'rainfall'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            강수량
-          </button>
-          <button
-            onClick={() => setSelectedTab('water')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              selectedTab === 'water'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            수위
-          </button>
-          <button
-            onClick={() => setSelectedTab('warning')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              selectedTab === 'warning'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            특보
-          </button>
-        </div>
-
-        {/* 탭 컨텐츠 */}
+        {/* 컨텐츠 */}
         <div className="min-h-[300px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-500">데이터를 불러오는 중...</p>
+                <p className="text-gray-500">수위 데이터를 불러오는 중...</p>
               </div>
             </div>
           ) : (
-            <>
-              {selectedTab === 'rainfall' && (
-                <RainfallInfo data={processedData?.rainfall} />
-              )}
-              {selectedTab === 'water' && (
-                <WaterLevelInfo data={processedData?.waterLevel} />
-              )}
-              {selectedTab === 'warning' && (
-                <FloodWarning data={processedData?.floodWarning} />
-              )}
-            </>
+            <WaterLevelInfo data={waterData?.success ? waterData.data : null} />
           )}
         </div>
 

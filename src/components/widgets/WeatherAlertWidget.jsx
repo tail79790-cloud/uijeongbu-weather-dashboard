@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getWeatherWarning, getWeatherWarningMsg } from '../../services/kmaApi';
-import { formatKoreanDateTime } from '../../utils/dateFormatter';
+import { formatKoreanDateTime, parseKMADateTime } from '../../utils/dateFormatter';
 import { formatAlertText, REGION_CODES, REGION_NAMES } from '../../utils/alertFormatter';
 import RefreshButton from '../common/RefreshButton';
 
@@ -61,7 +61,12 @@ const AlertCard = ({ warning, message }) => {
           </span>
         </div>
         <span className="text-xs font-medium">
-          {warning.tmFc ? formatKoreanDateTime(new Date(warning.tmFc)) : '발효 중'}
+          {warning.tmFc ? formatKoreanDateTime(
+            parseKMADateTime(
+              warning.tmFc.slice(0, 8),  // YYYYMMDD
+              warning.tmFc.slice(8, 12)  // HHmm
+            )
+          ) : '발효 중'}
         </span>
       </div>
 

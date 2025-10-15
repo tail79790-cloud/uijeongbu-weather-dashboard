@@ -6,8 +6,12 @@ const WIDGET_NAMES = {
   'deployment-section': '👮 경찰관 배치 관리',
   // 핵심 위젯들
   'weather-alert': '🚨 날씨 특보',
+  'weather-detail': '📄 기상특보 통보문',
   'current-weather': '🌤️ 현재 날씨',
   'rainfall-flood': '💧 강수량/수위',
+  'river-monitoring': '🌊 하천 수위 모니터링',
+  'district-comparison': '📍 행정구역별 비교',
+  'weather-river-correlation': '📊 날씨-하천 상관분석',
   'disaster-risk': '🚨 재난 위험도',
   'hourly-forecast': '⏰ 시간별 예보',
   'daily-forecast': '📅 일별 예보',

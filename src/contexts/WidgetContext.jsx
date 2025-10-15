@@ -7,8 +7,9 @@ const DEFAULT_LAYOUTS = {
     { i: 'deployment-section', x: 0, y: 0, w: 12, h: 10, minW: 12, minH: 8 },
     // 핵심 위젯들
     { i: 'weather-alert', x: 0, y: 10, w: 12, h: 2, minH: 1, minW: 6 },
-    { i: 'current-weather', x: 0, y: 12, w: 6, h: 4, minW: 4, minH: 3 },
-    { i: 'rainfall-flood', x: 6, y: 12, w: 6, h: 4, minW: 4, minH: 3 },
+    { i: 'weather-detail', x: 0, y: 12, w: 12, h: 5, minW: 8, minH: 4 },
+    { i: 'current-weather', x: 0, y: 17, w: 6, h: 4, minW: 4, minH: 3 },
+    { i: 'rainfall-flood', x: 6, y: 17, w: 6, h: 4, minW: 4, minH: 3 },
     { i: 'river-monitoring', x: 0, y: 16, w: 12, h: 6, minW: 8, minH: 5 },
     { i: 'district-comparison', x: 0, y: 22, w: 12, h: 6, minW: 8, minH: 5 },
     { i: 'weather-river-correlation', x: 0, y: 28, w: 12, h: 7, minW: 8, minH: 6 },
@@ -30,8 +31,9 @@ const DEFAULT_LAYOUTS = {
     { i: 'deployment-section', x: 0, y: 0, w: 10, h: 10, minW: 10, minH: 8 },
     // 핵심 위젯들
     { i: 'weather-alert', x: 0, y: 10, w: 10, h: 2, minH: 1, minW: 5 },
-    { i: 'current-weather', x: 0, y: 12, w: 10, h: 4, minW: 5, minH: 3 },
-    { i: 'rainfall-flood', x: 0, y: 16, w: 10, h: 4, minW: 5, minH: 3 },
+    { i: 'weather-detail', x: 0, y: 12, w: 10, h: 5, minW: 8, minH: 4 },
+    { i: 'current-weather', x: 0, y: 17, w: 10, h: 4, minW: 5, minH: 3 },
+    { i: 'rainfall-flood', x: 0, y: 21, w: 10, h: 4, minW: 5, minH: 3 },
     { i: 'river-monitoring', x: 0, y: 20, w: 10, h: 6, minW: 8, minH: 5 },
     { i: 'district-comparison', x: 0, y: 26, w: 10, h: 6, minW: 8, minH: 5 },
     { i: 'weather-river-correlation', x: 0, y: 32, w: 10, h: 7, minW: 8, minH: 6 },
@@ -53,8 +55,9 @@ const DEFAULT_LAYOUTS = {
     { i: 'deployment-section', x: 0, y: 0, w: 6, h: 12, minW: 6, minH: 10 },
     // 핵심 위젯들
     { i: 'weather-alert', x: 0, y: 12, w: 6, h: 2, minH: 1, minW: 4 },
-    { i: 'current-weather', x: 0, y: 14, w: 6, h: 4, minW: 4, minH: 3 },
-    { i: 'rainfall-flood', x: 0, y: 18, w: 6, h: 4, minW: 4, minH: 3 },
+    { i: 'weather-detail', x: 0, y: 14, w: 6, h: 5, minW: 6, minH: 4 },
+    { i: 'current-weather', x: 0, y: 19, w: 6, h: 4, minW: 4, minH: 3 },
+    { i: 'rainfall-flood', x: 0, y: 23, w: 6, h: 4, minW: 4, minH: 3 },
     { i: 'river-monitoring', x: 0, y: 22, w: 6, h: 6, minW: 6, minH: 5 },
     { i: 'district-comparison', x: 0, y: 28, w: 6, h: 6, minW: 6, minH: 5 },
     { i: 'weather-river-correlation', x: 0, y: 34, w: 6, h: 7, minW: 6, minH: 6 },
@@ -76,8 +79,9 @@ const DEFAULT_LAYOUTS = {
     { i: 'deployment-section', x: 0, y: 0, w: 4, h: 12, minW: 4, minH: 10 },
     // 핵심 위젯들
     { i: 'weather-alert', x: 0, y: 12, w: 4, h: 2, minH: 1, minW: 2 },
-    { i: 'current-weather', x: 0, y: 14, w: 4, h: 4, minW: 3, minH: 3 },
-    { i: 'rainfall-flood', x: 0, y: 18, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'weather-detail', x: 0, y: 14, w: 4, h: 5, minW: 4, minH: 4 },
+    { i: 'current-weather', x: 0, y: 19, w: 4, h: 4, minW: 3, minH: 3 },
+    { i: 'rainfall-flood', x: 0, y: 23, w: 4, h: 4, minW: 3, minH: 3 },
     { i: 'river-monitoring', x: 0, y: 22, w: 4, h: 6, minW: 4, minH: 5 },
     { i: 'district-comparison', x: 0, y: 28, w: 4, h: 6, minW: 4, minH: 5 },
     { i: 'weather-river-correlation', x: 0, y: 34, w: 4, h: 7, minW: 4, minH: 6 },
@@ -99,8 +103,9 @@ const DEFAULT_LAYOUTS = {
     { i: 'deployment-section', x: 0, y: 0, w: 2, h: 12, minW: 2, minH: 10 },
     // 핵심 위젯들
     { i: 'weather-alert', x: 0, y: 12, w: 2, h: 2, minH: 1, minW: 2 },
-    { i: 'current-weather', x: 0, y: 14, w: 2, h: 4, minW: 2, minH: 3 },
-    { i: 'rainfall-flood', x: 0, y: 18, w: 2, h: 4, minW: 2, minH: 3 },
+    { i: 'weather-detail', x: 0, y: 14, w: 2, h: 5, minW: 2, minH: 4 },
+    { i: 'current-weather', x: 0, y: 19, w: 2, h: 4, minW: 2, minH: 3 },
+    { i: 'rainfall-flood', x: 0, y: 23, w: 2, h: 4, minW: 2, minH: 3 },
     { i: 'river-monitoring', x: 0, y: 22, w: 2, h: 6, minW: 2, minH: 5 },
     { i: 'district-comparison', x: 0, y: 28, w: 2, h: 6, minW: 2, minH: 5 },
     { i: 'weather-river-correlation', x: 0, y: 34, w: 2, h: 7, minW: 2, minH: 6 },
@@ -124,6 +129,7 @@ const DEFAULT_WIDGET_VISIBILITY = {
   'deployment-section': true,
   // 핵심 위젯들
   'weather-alert': true,
+  'weather-detail': true,
   'current-weather': true,
   'rainfall-flood': true,
   'river-monitoring': true,
@@ -147,6 +153,7 @@ const DEFAULT_REFRESH_INTERVALS = {
   'deployment-section': null,    // 수동 배치 관리 (자동 새로고침 불필요)
   // 핵심 위젯들
   'weather-alert': 60000,        // 1분
+  'weather-detail': 60000,       // 1분 (특보 통보문)
   'current-weather': 300000,     // 5분
   'rainfall-flood': 300000,      // 5분
   'river-monitoring': 300000,    // 5분 (수위 데이터)

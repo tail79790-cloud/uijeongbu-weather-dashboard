@@ -419,6 +419,61 @@ export const getWeatherWarningMsg = async (stnId = '109') => {
   }
 };
 
+/**
+ * 전국 특보 현황 조회
+ * @param {string} fromTmFc - 시작 시각 (YYYYMMDDHHMM)
+ * @param {string} toTmFc - 종료 시각 (YYYYMMDDHHMM)
+ * @returns {Promise<Object>} 특보 현황 데이터
+ */
+export const getWthrPwnStatus = async (fromTmFc, toTmFc) => {
+  try {
+    // 시간 파라미터가 없으면 현재 시각 기준으로 설정
+    const now = new Date();
+    const from = fromTmFc || formatDateToKMA(now) + now.getHours().toString().padStart(2, '0') + '00';
+    const to = toTmFc || from;
+
+    console.log('전국 특보 현황 조회:', { from, to });
+
+    const response = await kmaApi.get('/WthrWrnInfoService/getWthrPwnStatus', {
+      params: {
+        serviceKey: API_KEY,
+        pageNo: 1,
+        numOfRows: 100,
+        dataType: 'JSON',
+        fromTmFc: from,
+        toTmFc: to
+      }
+    });
+
+    if (response.data?.response?.header?.resultCode === '00') {
+      const items = response.data.response.body?.items?.item;
+      return {
+        success: true,
+        data: items ? (Array.isArray(items) ? items : [items]) : [],
+        message: '전국 특보 현황 조회 성공'
+      };
+    } else {
+      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
+    }
+  } catch (error) {
+    console.error('전국 특보 현황 조회 오류:', error);
+
+    if (error.code === 'ERR_NETWORK') {
+      return {
+        success: false,
+        data: [],
+        message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
+    }
+
+    return {
+      success: false,
+      data: [],
+      message: error.response?.data?.response?.header?.resultMsg || error.message || '전국 특보 현황 조회 중 오류가 발생했습니다.'
+    };
+  }
+};
+
 // 데이터 처리 함수들
 
 /**
@@ -883,6 +938,7 @@ export default {
   getVilageFcst,
   getWeatherWarning,
   getWeatherWarningMsg,
+  getWthrPwnStatus,
   getMidTa,
   getMidLandFcst,
   getLivingWeatherIndex

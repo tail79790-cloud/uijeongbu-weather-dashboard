@@ -7,6 +7,7 @@ const WIDGET_NAMES = {
   // 핵심 위젯들
   'weather-alert': '🚨 날씨 특보',
   'weather-detail': '📄 기상특보 통보문',
+  'warning-status': '🗺️ 전국 특보 현황',
   'current-weather': '🌤️ 현재 날씨',
   'rainfall-flood': '💧 강수량/수위',
   'river-monitoring': '🌊 하천 수위 모니터링',

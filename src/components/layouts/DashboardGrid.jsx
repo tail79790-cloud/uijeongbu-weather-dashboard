@@ -17,6 +17,7 @@ import DeploymentSection from '../DeploymentSection'
 
 // Lazy load 위젯들
 const WeatherDetailWidget = lazy(() => import('../widgets/WeatherDetailWidget'))
+const WarningStatusWidget = lazy(() => import('../widgets/WarningStatusWidget'))
 const RainfallFloodWidget = lazy(() => import('../widgets/RainfallFloodWidget'))
 const HourlyForecastWidget = lazy(() => import('../widgets/HourlyForecastWidget'))
 const DailyForecastWidget = lazy(() => import('../widgets/DailyForecastWidget'))
@@ -47,6 +48,7 @@ const WIDGET_COMPONENTS = {
   // 핵심 위젯들
   'weather-alert': WeatherAlertWidget,
   'weather-detail': WeatherDetailWidget,
+  'warning-status': WarningStatusWidget,
   'current-weather': CurrentWeather,
   'rainfall-flood': RainfallFloodWidget,
   'river-monitoring': RiverMonitoringWidget,
@@ -73,7 +75,7 @@ const WidgetWrapper = memo(({ widgetId, isEditMode }) => {
 
   // Lazy loaded 컴포넌트 처리
   const isLazy = [
-    'weather-detail', 'rainfall-flood', 'river-monitoring', 'district-comparison', 'weather-river-correlation',
+    'weather-detail', 'warning-status', 'rainfall-flood', 'river-monitoring', 'district-comparison', 'weather-river-correlation',
     'hourly-forecast', 'daily-forecast', 'mid-forecast', 'air-quality', 'living-weather', 'notification-settings',
     'uijeongbu-map', 'police-indices', 'smart-insights'
   ].includes(widgetId)

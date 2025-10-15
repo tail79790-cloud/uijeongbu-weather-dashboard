@@ -37,6 +37,51 @@ kmaApi.interceptors.response.use(
   }
 );
 
+// Phase 3: 재시도 로직 헬퍼 함수
+const retryWithDelay = async (fn, retries = 2, delay = 1000, fnName = 'API') => {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= retries + 1; attempt++) {
+    try {
+      console.log(`🔄 ${fnName} 시도 ${attempt}/${retries + 1}`);
+      const result = await fn();
+
+      if (attempt > 1) {
+        console.log(`✅ ${fnName} 재시도 성공 (시도 ${attempt})`);
+      }
+
+      return result;
+    } catch (error) {
+      lastError = error;
+
+      // 재시도 가능한 에러인지 확인
+      const isRetryable =
+        error?.response?.status === 500 || // 서버 오류
+        error?.response?.data?.response?.header?.resultCode === '03' || // 데이터 없음
+        error?.code === 'ECONNABORTED' || // 타임아웃
+        error?.code === 'ERR_NETWORK'; // 네트워크 오류
+
+      if (!isRetryable || attempt > retries) {
+        console.error(`❌ ${fnName} 최종 실패 (시도 ${attempt}/${retries + 1})`);
+        throw lastError;
+      }
+
+      // 에러 타입별 지연 시간 설정
+      let waitTime = delay;
+      if (error?.response?.status === 500) {
+        waitTime = 2000; // 500 에러는 2초 대기
+      } else if (error?.response?.data?.response?.header?.resultCode === '03') {
+        waitTime = 1000; // NO_DATA는 1초 대기
+      }
+
+      console.warn(`⏳ ${fnName} 재시도 대기 중... (${waitTime}ms, 사유: ${error?.response?.status || error?.code || 'unknown'})`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+
+  throw lastError;
+};
+
 /**
  * 초단기실황 조회 - 현재 시각 기준 실시간 관측 데이터
  *
@@ -65,36 +110,56 @@ kmaApi.interceptors.response.use(
  * - 개발 모드에서는 API 키 없이 Mock 데이터 반환
  */
 export const getUltraSrtNcst = async (options = {}) => {
+  const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
+
   try {
-    const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
-    const { baseDate, baseTime } = getUltraSrtNcstBase();
+    // Phase 3: 재시도 로직 적용
+    return await retryWithDelay(async () => {
+      const { baseDate, baseTime } = getUltraSrtNcstBase();
 
-    console.log('초단기실황 요청:', { baseDate, baseTime, nx, ny });
+      console.log('초단기실황 요청:', { baseDate, baseTime, nx, ny });
 
-    const response = await kmaApi.get('/VilageFcstInfoService_2.0/getUltraSrtNcst', {
-      params: {
-        serviceKey: API_KEY,
-        pageNo: 1,
-        numOfRows: 10,
-        dataType: 'JSON',
-        base_date: baseDate,
-        base_time: baseTime,
-        nx,
-        ny
+      const response = await kmaApi.get('/VilageFcstInfoService_2.0/getUltraSrtNcst', {
+        params: {
+          serviceKey: API_KEY,
+          pageNo: 1,
+          numOfRows: 10,
+          dataType: 'JSON',
+          base_date: baseDate,
+          base_time: baseTime,
+          nx,
+          ny
+        },
+        timeout: 10000 // 10초 타임아웃
+      });
+
+      if (response.data?.response?.header?.resultCode === '00') {
+        return {
+          success: true,
+          data: processUltraSrtNcst(response.data.response.body.items.item),
+          message: '초단기실황 조회 성공'
+        };
+      } else {
+        const resultCode = response.data?.response?.header?.resultCode;
+        const resultMsg = response.data?.response?.header?.resultMsg || '알 수 없는 오류';
+        throw new Error(`KMA API Error (${resultCode}): ${resultMsg}`);
       }
-    });
-
-    if (response.data?.response?.header?.resultCode === '00') {
-      return {
-        success: true,
-        data: processUltraSrtNcst(response.data.response.body.items.item),
-        message: '초단기실황 조회 성공'
-      };
-    } else {
-      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
-    }
+    }, 2, 1000, '초단기실황');
   } catch (error) {
-    console.error('초단기실황 조회 오류:', error);
+    console.error('==== 초단기실황 조회 오류 ====');
+    console.error('에러 타입:', error?.code || error?.name || 'unknown');
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('API 응답 코드:', error?.response?.data?.response?.header?.resultCode || 'undefined');
+    console.error('API 응답 메시지:', error?.response?.data?.response?.header?.resultMsg || 'undefined');
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('좌표:', `nx=${nx}, ny=${ny}`);
+    console.error('================================');
+
+    // 개발 모드에서는 Mock 데이터 반환
+    if (import.meta.env.DEV && error.code === 'ERR_NETWORK') {
+      console.warn('⚠️ 개발 모드: Mock 데이터 사용');
+      return getMockUltraSrtNcst();
+    }
 
     if (error.code === 'ERR_NETWORK') {
       return {
@@ -126,36 +191,55 @@ export const getUltraSrtNcst = async (options = {}) => {
  * @returns {Promise<Object>} 예보 데이터
  */
 export const getUltraSrtFcst = async (options = {}) => {
+  const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
+
   try {
-    const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
-    const { baseDate, baseTime } = getUltraSrtFcstBase();
+    // Phase 3: 재시도 로직 적용
+    return await retryWithDelay(async () => {
+      const { baseDate, baseTime } = getUltraSrtFcstBase();
 
-    console.log('초단기예보 요청:', { baseDate, baseTime, nx, ny });
+      console.log('초단기예보 요청:', { baseDate, baseTime, nx, ny });
 
-    const response = await kmaApi.get('/VilageFcstInfoService_2.0/getUltraSrtFcst', {
-      params: {
-        serviceKey: API_KEY,
-        pageNo: 1,
-        numOfRows: 60,
-        dataType: 'JSON',
-        base_date: baseDate,
-        base_time: baseTime,
-        nx,
-        ny
+      const response = await kmaApi.get('/VilageFcstInfoService_2.0/getUltraSrtFcst', {
+        params: {
+          serviceKey: API_KEY,
+          pageNo: 1,
+          numOfRows: 60,
+          dataType: 'JSON',
+          base_date: baseDate,
+          base_time: baseTime,
+          nx,
+          ny
+        },
+        timeout: 10000
+      });
+
+      if (response.data?.response?.header?.resultCode === '00') {
+        return {
+          success: true,
+          data: processUltraSrtFcst(response.data.response.body.items.item),
+          message: '초단기예보 조회 성공'
+        };
+      } else {
+        const resultCode = response.data?.response?.header?.resultCode;
+        const resultMsg = response.data?.response?.header?.resultMsg || '알 수 없는 오류';
+        throw new Error(`KMA API Error (${resultCode}): ${resultMsg}`);
       }
-    });
-
-    if (response.data?.response?.header?.resultCode === '00') {
-      return {
-        success: true,
-        data: processUltraSrtFcst(response.data.response.body.items.item),
-        message: '초단기예보 조회 성공'
-      };
-    } else {
-      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
-    }
+    }, 2, 1000, '초단기예보');
   } catch (error) {
-    console.error('초단기예보 조회 오류:', error);
+    console.error('==== 초단기예보 조회 오류 ====');
+    console.error('에러 타입:', error?.code || error?.name || 'unknown');
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('API 응답 코드:', error?.response?.data?.response?.header?.resultCode || 'undefined');
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('좌표:', `nx=${nx}, ny=${ny}`);
+    console.error('================================');
+
+    // 개발 모드에서는 Mock 데이터 반환
+    if (import.meta.env.DEV && error.code === 'ERR_NETWORK') {
+      console.warn('⚠️ 개발 모드: Mock 데이터 사용');
+      return getMockUltraSrtFcst();
+    }
 
     if (error.code === 'ERR_NETWORK') {
       return {
@@ -179,36 +263,49 @@ export const getUltraSrtFcst = async (options = {}) => {
  * @returns {Promise<Object>} 예보 데이터
  */
 export const getVilageFcst = async (options = {}) => {
+  const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
+
   try {
-    const { nx = UIJEONGBU_GRID.nx, ny = UIJEONGBU_GRID.ny } = options;
-    const { baseDate, baseTime } = getVilageFcstBase();
+    // Phase 3: 재시도 로직 적용
+    return await retryWithDelay(async () => {
+      const { baseDate, baseTime } = getVilageFcstBase();
 
-    console.log('단기예보 요청:', { baseDate, baseTime, nx, ny });
+      console.log('단기예보 요청:', { baseDate, baseTime, nx, ny });
 
-    const response = await kmaApi.get('/VilageFcstInfoService_2.0/getVilageFcst', {
-      params: {
-        serviceKey: API_KEY,
-        pageNo: 1,
-        numOfRows: 1000,
-        dataType: 'JSON',
-        base_date: baseDate,
-        base_time: baseTime,
-        nx,
-        ny
+      const response = await kmaApi.get('/VilageFcstInfoService_2.0/getVilageFcst', {
+        params: {
+          serviceKey: API_KEY,
+          pageNo: 1,
+          numOfRows: 1000,
+          dataType: 'JSON',
+          base_date: baseDate,
+          base_time: baseTime,
+          nx,
+          ny
+        },
+        timeout: 10000
+      });
+
+      if (response.data?.response?.header?.resultCode === '00') {
+        return {
+          success: true,
+          data: processVilageFcst(response.data.response.body.items.item),
+          message: '단기예보 조회 성공'
+        };
+      } else {
+        const resultCode = response.data?.response?.header?.resultCode;
+        const resultMsg = response.data?.response?.header?.resultMsg || '알 수 없는 오류';
+        throw new Error(`KMA API Error (${resultCode}): ${resultMsg}`);
       }
-    });
-
-    if (response.data?.response?.header?.resultCode === '00') {
-      return {
-        success: true,
-        data: processVilageFcst(response.data.response.body.items.item),
-        message: '단기예보 조회 성공'
-      };
-    } else {
-      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
-    }
+    }, 2, 1000, '단기예보');
   } catch (error) {
-    console.error('단기예보 조회 오류:', error);
+    console.error('==== 단기예보 조회 오류 ====');
+    console.error('에러 타입:', error?.code || error?.name || 'unknown');
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('API 응답 코드:', error?.response?.data?.response?.header?.resultCode || 'undefined');
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('좌표:', `nx=${nx}, ny=${ny}`);
+    console.error('================================');
 
     if (error.code === 'ERR_NETWORK') {
       return {
@@ -507,31 +604,42 @@ function getMockWeatherWarningMsg() {
  */
 export const getMidTa = async (regId = '11B00000') => {
   try {
-    const today = new Date();
-    const tmFc = `${formatDateToKMA(today)}0600`;
+    // Phase 3: 재시도 로직 적용
+    return await retryWithDelay(async () => {
+      const today = new Date();
+      const tmFc = `${formatDateToKMA(today)}0600`;
 
-    const response = await kmaApi.get('/MidFcstInfoService/getMidTa', {
-      params: {
-        serviceKey: API_KEY,
-        pageNo: 1,
-        numOfRows: 10,
-        dataType: 'JSON',
-        regId,
-        tmFc
+      const response = await kmaApi.get('/MidFcstInfoService/getMidTa', {
+        params: {
+          serviceKey: API_KEY,
+          pageNo: 1,
+          numOfRows: 10,
+          dataType: 'JSON',
+          regId,
+          tmFc
+        },
+        timeout: 10000
+      });
+
+      if (response.data?.response?.header?.resultCode === '00') {
+        return {
+          success: true,
+          data: response.data.response.body.items.item[0],
+          message: '중기기온예보 조회 성공'
+        };
+      } else {
+        const resultCode = response.data?.response?.header?.resultCode;
+        const resultMsg = response.data?.response?.header?.resultMsg || '알 수 없는 오류';
+        throw new Error(`KMA API Error (${resultCode}): ${resultMsg}`);
       }
-    });
-
-    if (response.data?.response?.header?.resultCode === '00') {
-      return {
-        success: true,
-        data: response.data.response.body.items.item[0],
-        message: '중기기온예보 조회 성공'
-      };
-    } else {
-      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
-    }
+    }, 2, 1000, '중기기온예보');
   } catch (error) {
-    console.error('중기기온예보 오류:', error);
+    console.error('==== 중기기온예보 오류 ====');
+    console.error('에러 타입:', error?.code || error?.name || 'unknown');
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('지역 코드:', regId);
+    console.error('================================');
 
     if (error.code === 'ERR_NETWORK') {
       return {

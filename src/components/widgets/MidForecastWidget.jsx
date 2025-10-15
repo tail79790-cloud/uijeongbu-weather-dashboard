@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getMidTa, getMidLandFcst } from '../../services/kmaApi';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { useWidgetSize } from '../../hooks/useWidgetSize';
 import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
@@ -64,6 +65,8 @@ const DayCard = ({ day, temp, weather }) => {
 };
 
 const MidForecastWidget = () => {
+  const { size } = useWidgetSize('mid-forecast');
+
   const { data: tempData, isLoading: tempLoading, error: tempError, refetch: tempRefetch } = useQuery({
     queryKey: ['midTa'],
     queryFn: () => getMidTa('11B00000'),
@@ -132,6 +135,17 @@ const MidForecastWidget = () => {
     });
   }
 
+  // 크기에 따라 표시할 일수 제한
+  const maxDays = size === 'small' ? 2 : size === 'medium' ? 4 : 8;
+  const displayedDays = days.slice(0, maxDays);
+
+  // 그리드 레이아웃 동적 설정
+  const gridClass = size === 'small'
+    ? 'grid grid-cols-1 gap-3 mb-4'
+    : size === 'medium'
+    ? 'grid grid-cols-2 gap-3 mb-4'
+    : 'grid grid-cols-2 md:grid-cols-4 gap-3 mb-4';
+
   return (
     <WidgetCard
       title="📆 중기예보 (3~10일)"
@@ -139,19 +153,32 @@ const MidForecastWidget = () => {
       borderColor={WIDGET_BORDER_COLORS.INFO}
       headerAction={<RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />}
     >
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {days.map((day, idx) => (
+        <div className={gridClass}>
+          {displayedDays.map((day, idx) => (
             <DayCard key={idx} {...day} />
           ))}
         </div>
 
-        <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 text-xs text-yellow-800">
-          <p>💡 <strong>참고:</strong> 중기예보는 3일 이후의 날씨로 변동 가능성이 있습니다.</p>
-        </div>
+        {/* 더 많은 날짜가 있을 때 안내 */}
+        {days.length > maxDays && (
+          <div className="text-center text-sm text-gray-600 mb-3">
+            외 {days.length - maxDays}일 예보 (위젯 확대 시 표시)
+          </div>
+        )}
 
-        <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
-          자동 갱신: 6시간마다 • 발표시각: 06시, 18시
-        </div>
+        {/* 참고 사항 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 text-xs text-yellow-800">
+            <p>💡 <strong>참고:</strong> 중기예보는 3일 이후의 날씨로 변동 가능성이 있습니다.</p>
+          </div>
+        )}
+
+        {/* 갱신 정보 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
+            자동 갱신: 6시간마다 • 발표시각: 06시, 18시
+          </div>
+        )}
     </WidgetCard>
   );
 };

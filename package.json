@@ -8,10 +8,10 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest --coverage"
+    "test": "NODE_OPTIONS='--max-old-space-size=4096' vitest",
+    "test:ui": "NODE_OPTIONS='--max-old-space-size=4096' vitest --ui",
+    "test:run": "NODE_OPTIONS='--max-old-space-size=4096' vitest run",
+    "test:coverage": "NODE_OPTIONS='--max-old-space-size=4096' vitest --coverage"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.2",
@@ -22,9 +22,11 @@
     "postcss": "^8.5.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-dropzone": "^14.3.8",
     "react-grid-layout": "^1.5.2",
     "recharts": "^3.2.1",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

@@ -65,6 +65,7 @@ export function parseKMADateTime(dateStr, timeStr) {
 
 /**
  * 초단기실황 발표 시각 계산
+ * 매시 40분에 발표되며, API 지연을 고려하여 45분 이전에는 이전 시간 데이터 조회
  * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
@@ -73,8 +74,8 @@ export function getUltraSrtNcstBase(date) {
   let hour = baseDate.getHours();
   let minute = baseDate.getMinutes();
 
-  // 40분 이전이면 이전 시간 사용
-  if (minute < 40) {
+  // 안전 마진: 45분 이전이면 이전 시간 사용 (API 지연 대응)
+  if (minute < 45) {
     baseDate = addHours(baseDate, -1);
     hour = baseDate.getHours();
   }
@@ -87,6 +88,7 @@ export function getUltraSrtNcstBase(date) {
 
 /**
  * 초단기예보 발표 시각 계산
+ * 매시 30분에 발표되며, API 지연을 고려하여 35분 이전에는 이전 시간 데이터 조회
  * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
@@ -95,8 +97,8 @@ export function getUltraSrtFcstBase(date) {
   let hour = baseDate.getHours();
   let minute = baseDate.getMinutes();
 
-  // 30분 이전이면 이전 시간 사용
-  if (minute < 30) {
+  // 안전 마진: 35분 이전이면 이전 시간 사용 (API 지연 대응)
+  if (minute < 35) {
     baseDate = addHours(baseDate, -1);
     hour = baseDate.getHours();
   }
@@ -109,19 +111,22 @@ export function getUltraSrtFcstBase(date) {
 
 /**
  * 단기예보 발표 시각 계산
+ * 02, 05, 08, 11, 14, 17, 20, 23시 발표 (각 시각 10분 후부터 조회 가능)
  * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
  * @returns {{baseDate: string, baseTime: string}} 발표 시각
  */
 export function getVilageFcstBase(date) {
-  const baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
+  let baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
   const hour = baseDate.getHours();
+  const minute = baseDate.getMinutes();
 
-  // 발표 시각: 02, 05, 08, 11, 14, 17, 20, 23시
+  // 발표 시각: 02, 05, 08, 11, 14, 17, 20, 23시 (10분 이후 조회 가능)
   const baseHours = [2, 5, 8, 11, 14, 17, 20, 23];
 
   let baseHour = 23;
   for (let i = 0; i < baseHours.length; i++) {
-    if (hour < baseHours[i]) {
+    // 현재 시각이 발표 시각보다 작거나, 발표 시각과 같지만 10분 이전이면
+    if (hour < baseHours[i] || (hour === baseHours[i] && minute < 10)) {
       // 이전 발표 시각 사용
       baseHour = i === 0 ? 23 : baseHours[i - 1];
       if (i === 0) {

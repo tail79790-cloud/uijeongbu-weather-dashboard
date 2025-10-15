@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { getUltraSrtFcst, getVilageFcst } from '../../services/kmaApi';
 import { formatKoreanTime } from '../../utils/dateFormatter';
+import { useWidgetSize } from '../../hooks/useWidgetSize';
 import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
@@ -21,10 +22,10 @@ import { WIDGET_BORDER_COLORS, LOADING_MESSAGES } from '../../constants/designSy
 // 시간별 예보 카드 컴포넌트
 const HourlyCard = ({ forecast }) => {
   return (
-    <div className="flex-shrink-0 w-24 bg-white rounded-lg p-3 border border-gray-200 hover:shadow-md transition-shadow">
+    <div className="flex-shrink-0 w-24 bg-white dark:bg-gray-800 rounded-lg widget-padding border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
       <div className="text-center">
         {/* 시간 */}
-        <div className="text-xs font-semibold text-gray-600 mb-2">
+        <div className="widget-text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">
           {formatKoreanTime(forecast.datetime, 'HH:mm')}
         </div>
 
@@ -34,26 +35,26 @@ const HourlyCard = ({ forecast }) => {
         </div>
 
         {/* 기온 */}
-        <div className="text-lg font-bold text-gray-900 mb-1">
+        <div className="widget-text-lg font-bold text-gray-900 dark:text-white mb-1">
           {Math.round(forecast.temperature)}°
         </div>
 
         {/* 강수확률 */}
         {forecast.pop > 0 && (
-          <div className="text-xs text-blue-600 mb-1">
+          <div className="widget-text-sm text-blue-600 dark:text-blue-400 mb-1">
             💧 {forecast.pop}%
           </div>
         )}
 
         {/* 강수량 */}
         {forecast.rainfall && forecast.rainfall !== '강수없음' && (
-          <div className="text-xs text-blue-700 font-medium mb-1">
+          <div className="widget-text-sm text-blue-700 dark:text-blue-300 font-medium mb-1">
             {forecast.rainfall}
           </div>
         )}
 
         {/* 풍속 */}
-        <div className="text-xs text-gray-500">
+        <div className="widget-text-sm text-gray-500 dark:text-gray-400">
           🌪️ {forecast.windSpeed.toFixed(1)}m/s
         </div>
       </div>
@@ -92,6 +93,8 @@ const CustomTooltip = ({ active, payload }) => {
 
 // 메인 위젯
 const HourlyForecastWidget = () => {
+  const { size, chartHeight } = useWidgetSize('hourly-forecast');
+
   // 초단기예보 (6시간)
   const { data: ultraData, isLoading: ultraLoading, error: ultraError, refetch: ultraRefetch } = useQuery({
     queryKey: ['ultraSrtFcst'],
@@ -197,8 +200,8 @@ const HourlyForecastWidget = () => {
       <div className="space-y-6">
         {/* 온도 그래프 */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">🌡️ 기온 변화</h3>
-          <ResponsiveContainer width="100%" height={150}>
+          <h3 className="widget-text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">🌡️ 기온 변화</h3>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
@@ -229,10 +232,11 @@ const HourlyForecastWidget = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* 강수확률 그래프 */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">💧 강수확률</h3>
-          <ResponsiveContainer width="100%" height={100}>
+        {/* 강수확률 그래프 - 중간 크기 이상에서 표시 */}
+        {size !== 'small' && (
+          <div>
+            <h3 className="widget-text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">💧 강수확률</h3>
+            <ResponsiveContainer width="100%" height={Math.max(80, chartHeight * 0.6)}>
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="popGradient" x1="0" y1="0" x2="0" y2="1">
@@ -261,14 +265,15 @@ const HourlyForecastWidget = () => {
               />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+          </div>
+        )}
 
-        {/* 시간별 카드 스크롤 */}
+        {/* 시간별 카드 스크롤 - 크기에 따라 표시 개수 조절 */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">⏰ 시간별 상세</h3>
+          <h3 className="widget-text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">⏰ 시간별 상세</h3>
           <div className="overflow-x-auto">
-            <div className="flex space-x-3 pb-2">
-              {forecasts.slice(0, 12).map((forecast, index) => (
+            <div className="flex widget-gap pb-2">
+              {forecasts.slice(0, size === 'small' ? 6 : size === 'medium' ? 9 : 12).map((forecast, index) => (
                 <HourlyCard key={index} forecast={forecast} />
               ))}
             </div>
@@ -276,7 +281,7 @@ const HourlyForecastWidget = () => {
         </div>
 
         {/* 마지막 업데이트 */}
-        <div className="text-xs text-gray-500 text-center pt-4 border-t">
+        <div className="widget-text-sm text-gray-500 dark:text-gray-400 text-center pt-4 border-t border-gray-200 dark:border-gray-700">
           자동 갱신: 10분마다 • 마지막 업데이트: {new Date().toLocaleTimeString('ko-KR')}
         </div>
       </div>

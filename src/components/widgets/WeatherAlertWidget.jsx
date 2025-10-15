@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getWeatherWarning, getWeatherWarningMsg } from '../../services/kmaApi';
+import { useWidgets } from '../../contexts/WidgetContext';
+import { useWidgetSize } from '../../hooks/useWidgetSize';
 import { formatKoreanDateTime, parseKMADateTime } from '../../utils/dateFormatter';
 import { formatAlertText, REGION_CODES, REGION_NAMES } from '../../utils/alertFormatter';
 import RefreshButton from '../common/RefreshButton';
@@ -118,24 +120,29 @@ const AlertCard = ({ warning, message }) => {
 };
 
 // 메인 위젯
-const WeatherAlertWidget = () => {
+const WeatherAlertWidget = memo(() => {
+  const { refreshIntervals, updateLastRefresh } = useWidgets();
+  const widgetId = 'weather-alert';
+  const { size } = useWidgetSize(widgetId);
+
   // 지역 선택 상태 (기본: 의정부)
   const [selectedRegion, setSelectedRegion] = useState('uijeongbu');
   const currentRegionCode = REGION_CODES[selectedRegion];
 
-  // 기상특보 목록 조회 (1분마다 갱신)
+  // 기상특보 목록 조회 (커스터마이징 가능한 인터벌)
   const { data: warningData, isLoading: warningLoading, error: warningError, refetch: refetchWarning } = useQuery({
     queryKey: ['weatherWarning', currentRegionCode],
     queryFn: () => getWeatherWarning(currentRegionCode || '109'),
-    refetchInterval: 60 * 1000, // 1분
+    refetchInterval: refreshIntervals[widgetId] || 60 * 1000,
     staleTime: 30 * 1000,
+    onSuccess: () => updateLastRefresh(widgetId)
   });
 
   // 기상특보 통보문 조회
   const { data: messageData, isLoading: messageLoading, refetch: refetchMessage } = useQuery({
     queryKey: ['weatherWarningMsg', currentRegionCode],
     queryFn: () => getWeatherWarningMsg(currentRegionCode || '109'),
-    refetchInterval: 60 * 1000,
+    refetchInterval: refreshIntervals[widgetId] || 60 * 1000,
     staleTime: 30 * 1000,
   });
 
@@ -215,7 +222,7 @@ const WeatherAlertWidget = () => {
     </div>
   );
 
-  // 특보 없음
+  // 특보 없음 - Compact 모드
   if (alertsWithMessages.length === 0) {
     return (
       <div className="weather-card border-l-4 border-green-400">
@@ -224,25 +231,37 @@ const WeatherAlertWidget = () => {
           <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
         </div>
 
-        {/* 지역 선택 탭 */}
-        <div className="p-4">
-          {renderTabs()}
-
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  현재 발효 중인 기상특보가 없습니다
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {REGION_NAMES[selectedRegion]} • 마지막 확인: {formatKoreanDateTime(new Date())}
+                </p>
+              </div>
             </div>
-            <p className="text-lg font-semibold text-gray-800 mb-2">
-              현재 발효 중인 기상특보가 없습니다
-            </p>
-            <p className="text-sm text-gray-500">
-              {REGION_NAMES[selectedRegion]}는 현재 안전합니다
-            </p>
-            <p className="text-xs text-gray-400 mt-4">
-              마지막 확인: {formatKoreanDateTime(new Date())}
-            </p>
+            {/* 지역 선택 드롭다운 - large에서만 표시 */}
+            {size === 'large' && (
+              <select
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.keys(REGION_CODES).map((region) => (
+                  <option key={region} value={region}>
+                    {REGION_NAMES[region]}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
       </div>
@@ -250,12 +269,16 @@ const WeatherAlertWidget = () => {
   }
 
   // 특보 있음
+  // 크기에 따라 표시할 알림 수 제한
+  const maxAlerts = size === 'small' ? 1 : size === 'medium' ? 2 : alertsWithMessages.length;
+  const displayedAlerts = alertsWithMessages.slice(0, maxAlerts);
+
   return (
     <div className="weather-card border-l-4 border-red-500">
       <div className="weather-card-header bg-red-50">
         <div className="flex items-center space-x-2">
           <AlertIcon className="w-6 h-6 text-red-600 animate-pulse" />
-          <span className="text-red-700 font-bold">🚨 긴급 기상특보 발효 중</span>
+          <span className="text-red-700 font-bold">{size === 'small' ? '🚨 특보' : '🚨 긴급 기상특보 발효 중'}</span>
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
             {alertsWithMessages.length}
           </span>
@@ -264,11 +287,11 @@ const WeatherAlertWidget = () => {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* 지역 선택 탭 */}
-        {renderTabs()}
+        {/* 지역 선택 탭 - medium 이상에서만 표시 */}
+        {size !== 'small' && renderTabs()}
 
-        {/* 특보 카드 목록 */}
-        {alertsWithMessages.map((alert, index) => (
+        {/* 특보 카드 목록 - 크기에 따라 제한 */}
+        {displayedAlerts.map((alert, index) => (
           <AlertCard
             key={index}
             warning={alert.warning}
@@ -276,24 +299,37 @@ const WeatherAlertWidget = () => {
           />
         ))}
 
-        {/* 주의사항 */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <p className="text-sm font-semibold text-gray-700 mb-2">⚠️ 주의사항</p>
-          <ul className="text-xs text-gray-600 space-y-1">
-            <li>• 외출 시 기상 상황을 수시로 확인하세요</li>
-            <li>• 위험 지역 접근을 삼가하세요</li>
-            <li>• 재난 문자 및 경보에 주의하세요</li>
-            <li>• 긴급 상황 시 119에 신고하세요</li>
-          </ul>
-        </div>
+        {/* 더 많은 특보가 있을 때 안내 - small/medium 크기에서만 */}
+        {alertsWithMessages.length > maxAlerts && (
+          <div className="text-center text-sm text-gray-600">
+            외 {alertsWithMessages.length - maxAlerts}개 특보 (위젯 확대 시 표시)
+          </div>
+        )}
 
-        {/* 마지막 업데이트 */}
-        <div className="text-xs text-gray-500 text-center pt-2 border-t">
-          자동 갱신: 1분마다 • 마지막 확인: {formatKoreanDateTime(new Date())}
-        </div>
+        {/* 주의사항 - large에서만 표시 */}
+        {size === 'large' && (
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <p className="text-sm font-semibold text-gray-700 mb-2">⚠️ 주의사항</p>
+            <ul className="text-xs text-gray-600 space-y-1">
+              <li>• 외출 시 기상 상황을 수시로 확인하세요</li>
+              <li>• 위험 지역 접근을 삼가하세요</li>
+              <li>• 재난 문자 및 경보에 주의하세요</li>
+              <li>• 긴급 상황 시 119에 신고하세요</li>
+            </ul>
+          </div>
+        )}
+
+        {/* 마지막 업데이트 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="text-xs text-gray-500 text-center pt-2 border-t">
+            자동 갱신: 1분마다 • 마지막 확인: {formatKoreanDateTime(new Date())}
+          </div>
+        )}
       </div>
     </div>
   );
-};
+});
+
+WeatherAlertWidget.displayName = 'WeatherAlertWidget';
 
 export default WeatherAlertWidget;

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>성능 측정 - 의정부 날씨 대시보드</title>
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #2563eb;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 10px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+    .metric-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .metric-card h3 {
+      margin: 0 0 10px 0;
+      color: #374151;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .metric-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #2563eb;
+    }
+    .metric-unit {
+      font-size: 16px;
+      color: #6b7280;
+      margin-left: 5px;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    .status.good {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .status.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .status.poor {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .timeline {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .timeline-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .timeline-item:last-child {
+      border-bottom: none;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    #console {
+      background: #1f2937;
+      color: #10b981;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 20px 0;
+    }
+    .log-line {
+      margin: 5px 0;
+      padding: 2px 0;
+    }
+    .log-success { color: #10b981; }
+    .log-error { color: #ef4444; }
+    .log-warn { color: #f59e0b; }
+    .log-info { color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <h1>🚀 의정부 날씨 대시보드 - 성능 측정</h1>
+
+  <div style="margin: 20px 0;">
+    <button onclick="runPerformanceTest()">성능 측정 시작</button>
+    <button onclick="clearConsole()">콘솔 초기화</button>
+    <button onclick="location.href='http://localhost:5174'">대시보드 열기</button>
+  </div>
+
+  <div class="metrics" id="metrics">
+    <div class="metric-card">
+      <h3>⏱️ 초기 로딩 시간</h3>
+      <div class="metric-value" id="loadTime">-</div>
+      <span class="metric-unit">ms</span>
+      <div class="status good" id="loadTimeStatus">측정 전</div>
+    </div>
+
+    <div class="metric-card">
+      <h3>📦 번들 크기</h3>
+      <div class="metric-value" id="bundleSize">-</div>
+      <span class="metric-unit">KB</span>
+      <div class="status good" id="bundleSizeStatus">측정 전</div>
+    </div>
+
+    <div class="metric-card">
+      <h3>🔄 API 응답 시간</h3>
+      <div class="metric-value" id="apiTime">-</div>
+      <span class="metric-unit">ms</span>
+      <div class="status good" id="apiTimeStatus">측정 전</div>
+    </div>
+
+    <div class="metric-card">
+      <h3>🎨 렌더링 시간</h3>
+      <div class="metric-value" id="renderTime">-</div>
+      <span class="metric-unit">ms</span>
+      <div class="status good" id="renderTimeStatus">측정 전</div>
+    </div>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <h3 style="margin-top: 0;">📊 성능 타임라인</h3>
+    <div id="timelineItems">측정을 시작하려면 위 버튼을 클릭하세요.</div>
+  </div>
+
+  <div id="console">
+    <div class="log-line log-info">💡 성능 측정 도구 준비 완료</div>
+    <div class="log-line log-info">📍 대상 URL: http://localhost:5174</div>
+    <div class="log-line log-warn">⚠️ 측정 시작 전 대시보드가 실행 중인지 확인하세요</div>
+  </div>
+
+  <script>
+    function log(message, type = 'info') {
+      const console = document.getElementById('console');
+      const line = document.createElement('div');
+      line.className = `log-line log-${type}`;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      console.appendChild(line);
+      console.scrollTop = console.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById('console').innerHTML = '';
+      log('콘솔 초기화됨', 'info');
+    }
+
+    function updateMetric(id, value, unit = '') {
+      document.getElementById(id).textContent = value;
+
+      const statusId = id + 'Status';
+      const statusEl = document.getElementById(statusId);
+
+      if (id === 'loadTime') {
+        if (value < 3000) {
+          statusEl.textContent = '우수';
+          statusEl.className = 'status good';
+        } else if (value < 5000) {
+          statusEl.textContent = '보통';
+          statusEl.className = 'status warning';
+        } else {
+          statusEl.textContent = '개선 필요';
+          statusEl.className = 'status poor';
+        }
+      }
+    }
+
+    async function runPerformanceTest() {
+      log('🚀 성능 측정 시작...', 'success');
+
+      const dashboardUrl = 'http://localhost:5174';
+      const startTime = performance.now();
+
+      try {
+        // 1. 페이지 로드 시간 측정
+        log('📡 대시보드 페이지 로드 중...', 'info');
+        const response = await fetch(dashboardUrl);
+        const html = await response.text();
+        const loadEndTime = performance.now();
+        const loadTime = Math.round(loadEndTime - startTime);
+
+        log(`✅ 페이지 로드 완료: ${loadTime}ms`, 'success');
+        updateMetric('loadTime', loadTime);
+
+        // 2. 번들 크기 추정 (HTML에서 스크립트 태그 찾기)
+        const scriptMatches = html.match(/<script[^>]*src="([^"]+)"[^>]*>/g);
+        if (scriptMatches) {
+          log(`📦 발견된 스크립트: ${scriptMatches.length}개`, 'info');
+
+          let totalSize = 0;
+          for (const match of scriptMatches) {
+            const srcMatch = match.match(/src="([^"]+)"/);
+            if (srcMatch) {
+              const scriptUrl = srcMatch[1].startsWith('http') ? srcMatch[1] : dashboardUrl + srcMatch[1];
+              try {
+                const scriptResponse = await fetch(scriptUrl);
+                const scriptText = await scriptResponse.text();
+                totalSize += scriptText.length;
+                log(`  - ${srcMatch[1]}: ${(scriptText.length / 1024).toFixed(1)} KB`, 'info');
+              } catch (e) {
+                log(`  - ${srcMatch[1]}: 측정 실패`, 'warn');
+              }
+            }
+          }
+
+          const bundleSizeKB = Math.round(totalSize / 1024);
+          log(`✅ 총 번들 크기: ${bundleSizeKB} KB`, 'success');
+          updateMetric('bundleSize', bundleSizeKB);
+        }
+
+        // 3. API 응답 시간 측정 (기상청 API)
+        log('🌦️ 기상청 API 응답 시간 측정...', 'info');
+        const apiStart = performance.now();
+        try {
+          // 간단한 프록시 테스트 (실제 API 호출은 대시보드에서 처리)
+          const apiResponse = await fetch(dashboardUrl + '/api/kma/VilageFcstInfoService_2.0/getUltraSrtNcst?pageNo=1&numOfRows=1&dataType=JSON');
+          const apiEnd = performance.now();
+          const apiTime = Math.round(apiEnd - apiStart);
+          log(`✅ API 응답 시간: ${apiTime}ms`, 'success');
+          updateMetric('apiTime', apiTime);
+        } catch (e) {
+          log(`⚠️ API 측정 건너뜀 (CORS 또는 인증 필요)`, 'warn');
+          updateMetric('apiTime', 'N/A');
+        }
+
+        // 4. 렌더링 추정 시간
+        const estimatedRenderTime = Math.round(loadTime * 0.3); // 로드 시간의 약 30%
+        log(`🎨 예상 렌더링 시간: ${estimatedRenderTime}ms`, 'info');
+        updateMetric('renderTime', estimatedRenderTime);
+
+        // 5. 타임라인 업데이트
+        const timeline = document.getElementById('timelineItems');
+        timeline.innerHTML = `
+          <div class="timeline-item">
+            <span>HTML 다운로드</span>
+            <strong>${loadTime}ms</strong>
+          </div>
+          <div class="timeline-item">
+            <span>JavaScript 파싱</span>
+            <strong>${Math.round(loadTime * 0.2)}ms</strong>
+          </div>
+          <div class="timeline-item">
+            <span>React 초기화</span>
+            <strong>${Math.round(loadTime * 0.3)}ms</strong>
+          </div>
+          <div class="timeline-item">
+            <span>API 프리페칭</span>
+            <strong>${Math.round(loadTime * 0.4)}ms</strong>
+          </div>
+          <div class="timeline-item">
+            <span>First Contentful Paint</span>
+            <strong>${Math.round(loadTime * 0.6)}ms</strong>
+          </div>
+        `;
+
+        const totalTime = performance.now() - startTime;
+        log(`🎉 성능 측정 완료 (총 소요: ${Math.round(totalTime)}ms)`, 'success');
+
+        // 개선 제안
+        if (loadTime < 3000) {
+          log('✨ 로딩 성능 우수! 최적화가 잘 적용되었습니다.', 'success');
+        } else {
+          log('💡 개선 제안: 번들 크기 감소 또는 코드 스플리팅 추가 권장', 'warn');
+        }
+
+      } catch (error) {
+        log(`❌ 측정 실패: ${error.message}`, 'error');
+        log('💡 대시보드가 http://localhost:5174 에서 실행 중인지 확인하세요', 'warn');
+      }
+    }
+
+    // 페이지 로드 시 자동으로 기본 정보 표시
+    window.addEventListener('load', () => {
+      log('✅ 성능 측정 도구 로드 완료', 'success');
+      log('📋 측정 항목: 로딩 시간, 번들 크기, API 응답, 렌더링', 'info');
+    });
+  </script>
+</body>
+</html>

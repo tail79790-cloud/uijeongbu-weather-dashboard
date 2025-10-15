@@ -39,10 +39,17 @@ export default defineConfig({
       '/api/hanriver': {
         target: 'https://api.hrfco.go.kr',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/api\/hanriver/, ''),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('한강홍수통제소 API 요청:', req.url);
+            console.log('🌊 한강홍수통제소 API 요청:', req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('✅ 한강홍수통제소 API 응답:', proxyRes.statusCode);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ 한강홍수통제소 API 프록시 에러:', err.message);
           });
         }
       },
@@ -50,10 +57,17 @@ export default defineConfig({
       '/api/kma': {
         target: 'http://apis.data.go.kr',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/api\/kma/, '/1360000'),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('기상청 API 요청:', req.url);
+            console.log('🌦️ 기상청 API 요청:', req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('✅ 기상청 API 응답:', proxyRes.statusCode);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ 기상청 API 프록시 에러:', err.message);
           });
         }
       },
@@ -61,10 +75,35 @@ export default defineConfig({
       '/api/weather': {
         target: 'https://api.openweathermap.org',
         changeOrigin: true,
+        secure: false,
         rewrite: (path) => path.replace(/^\/api\/weather/, '/data/2.5'),
         configure: (proxy, options) => {
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('날씨 API 요청:', req.url);
+            console.log('☁️ OpenWeather API 요청:', req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('✅ OpenWeather API 응답:', proxyRes.statusCode);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ OpenWeather API 프록시 에러:', err.message);
+          });
+        }
+      },
+      // WAMIS (국가수자원관리종합정보시스템) 프록시 (크롤링용)
+      '/api/wamis': {
+        target: 'https://www.wamis.go.kr',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/wamis/, ''),
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('🌐 WAMIS 크롤링 요청:', req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('✅ WAMIS 응답:', proxyRes.statusCode);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('❌ WAMIS 프록시 에러:', err.message);
           });
         }
       }

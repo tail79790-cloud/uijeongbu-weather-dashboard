@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useWidgetSize } from '../hooks/useWidgetSize';
 import {
   requestNotificationPermission,
   getNotificationPermission,
@@ -8,6 +9,8 @@ import {
 } from '../utils/notifications';
 
 const NotificationSettings = () => {
+  const { size } = useWidgetSize('notification-settings');
+
   const [permission, setPermission] = useState('default');
   const [settings, setSettings] = useState({
     enabled: false,
@@ -60,19 +63,21 @@ const NotificationSettings = () => {
     <div className="weather-card border-l-4 border-blue-500">
       <div className="weather-card-header">
         <span>🔔 알림 설정</span>
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          {showSettings ? '닫기' : '설정'}
-        </button>
+        {size !== 'small' && (
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {showSettings ? '닫기' : '설정'}
+          </button>
+        )}
       </div>
 
       <div className="p-4">
         {/* 알림 권한 상태 */}
         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className={`flex ${size === 'small' ? 'flex-col' : 'items-center justify-between'}`}>
+            <div className={size === 'small' ? 'mb-3' : ''}>
               <div className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 알림 상태
               </div>
@@ -86,7 +91,7 @@ const NotificationSettings = () => {
             {!settings.enabled && permission !== 'denied' && permission !== 'unsupported' && (
               <button
                 onClick={handleEnableNotifications}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm ${size === 'small' ? 'w-full' : ''}`}
               >
                 알림 켜기
               </button>
@@ -94,7 +99,7 @@ const NotificationSettings = () => {
             {settings.enabled && (
               <button
                 onClick={handleDisableNotifications}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                className={`px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm ${size === 'small' ? 'w-full' : ''}`}
               >
                 알림 끄기
               </button>
@@ -102,8 +107,8 @@ const NotificationSettings = () => {
           </div>
         </div>
 
-        {/* 상세 설정 */}
-        {showSettings && settings.enabled && (
+        {/* 상세 설정 - medium 이상에서만 표시 */}
+        {size !== 'small' && showSettings && settings.enabled && (
           <div className="space-y-3">
             <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               알림 종류 선택
@@ -186,15 +191,17 @@ const NotificationSettings = () => {
           </div>
         )}
 
-        {/* 안내 메시지 */}
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-xs text-blue-800 dark:text-blue-200">
-            💡 <strong>알림 안내</strong><br />
-            • 기상 특보 발령 시 즉시 알림<br />
-            • 강수량/수위 임계치 초과 시 경보<br />
-            • 모바일 홈 화면에 추가하면 앱처럼 사용 가능
-          </p>
-        </div>
+        {/* 안내 메시지 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-xs text-blue-800 dark:text-blue-200">
+              💡 <strong>알림 안내</strong><br />
+              • 기상 특보 발령 시 즉시 알림<br />
+              • 강수량/수위 임계치 초과 시 경보<br />
+              • 모바일 홈 화면에 추가하면 앱처럼 사용 가능
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

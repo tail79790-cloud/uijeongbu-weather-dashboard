@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAirPollution } from '../../services/openWeatherApi';
+import { useWidgetSize } from '../../hooks/useWidgetSize';
 import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
@@ -15,6 +16,8 @@ const AQI_INFO = {
 };
 
 const AirQualityWidget = () => {
+  const { size } = useWidgetSize('air-quality');
+
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['airPollution'],
     queryFn: () => getAirPollution(37.738, 127.034),
@@ -72,44 +75,56 @@ const AirQualityWidget = () => {
           </div>
         </div>
 
-        {/* 상세 정보 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <div className="text-xs text-gray-600 mb-1">미세먼지 (PM10)</div>
-            <div className="text-lg font-semibold text-gray-800">
-              {Math.round(airData.pm10 || 0)}
+        {/* 상세 정보 - 크기에 따라 표시되는 항목 조절 */}
+        {size !== 'small' && (
+          <div className="grid grid-cols-2 gap-3">
+            {/* PM10 - medium 이상 */}
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-600 mb-1">미세먼지 (PM10)</div>
+              <div className="text-lg font-semibold text-gray-800">
+                {Math.round(airData.pm10 || 0)}
+              </div>
+              <div className="text-xs text-gray-500">μg/m³</div>
             </div>
-            <div className="text-xs text-gray-500">μg/m³</div>
-          </div>
 
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <div className="text-xs text-gray-600 mb-1">초미세먼지 (PM2.5)</div>
-            <div className="text-lg font-semibold text-gray-800">
-              {Math.round(airData.pm2_5 || 0)}
+            {/* PM2.5 - medium 이상 */}
+            <div className="bg-gray-50 rounded-lg p-3 text-center">
+              <div className="text-xs text-gray-600 mb-1">초미세먼지 (PM2.5)</div>
+              <div className="text-lg font-semibold text-gray-800">
+                {Math.round(airData.pm2_5 || 0)}
+              </div>
+              <div className="text-xs text-gray-500">μg/m³</div>
             </div>
-            <div className="text-xs text-gray-500">μg/m³</div>
-          </div>
 
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <div className="text-xs text-gray-600 mb-1">오존 (O₃)</div>
-            <div className="text-lg font-semibold text-gray-800">
-              {Math.round(airData.o3 || 0)}
-            </div>
-            <div className="text-xs text-gray-500">μg/m³</div>
-          </div>
+            {/* O3, NO2 - large에서만 */}
+            {size === 'large' && (
+              <>
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-600 mb-1">오존 (O₃)</div>
+                  <div className="text-lg font-semibold text-gray-800">
+                    {Math.round(airData.o3 || 0)}
+                  </div>
+                  <div className="text-xs text-gray-500">μg/m³</div>
+                </div>
 
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <div className="text-xs text-gray-600 mb-1">이산화질소 (NO₂)</div>
-            <div className="text-lg font-semibold text-gray-800">
-              {Math.round(airData.no2 || 0)}
-            </div>
-            <div className="text-xs text-gray-500">μg/m³</div>
+                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-gray-600 mb-1">이산화질소 (NO₂)</div>
+                  <div className="text-lg font-semibold text-gray-800">
+                    {Math.round(airData.no2 || 0)}
+                  </div>
+                  <div className="text-xs text-gray-500">μg/m³</div>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
 
-        <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
-          자동 갱신: 30분마다
-        </div>
+        {/* 갱신 정보 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
+            자동 갱신: 30분마다
+          </div>
+        )}
       </div>
     </WidgetCard>
   );

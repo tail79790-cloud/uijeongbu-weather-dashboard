@@ -1,5 +1,8 @@
+import { memo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getCurrentWeather } from '../../services/openWeatherApi'
+import { useWidgets } from '../../contexts/WidgetContext'
+import { useWidgetSize } from '../../hooks/useWidgetSize'
 import WidgetCard from '../common/WidgetCard'
 import WidgetLoader from '../common/WidgetLoader'
 import WidgetError from '../common/WidgetError'
@@ -12,15 +15,20 @@ const UIJEONGBU_COORDS = {
   lon: 127.034
 }
 
-function CurrentWeather() {
-  // React Query로 날씨 데이터 조회 (5분마다 자동 새로고침)
+const CurrentWeather = memo(() => {
+  const { refreshIntervals, updateLastRefresh } = useWidgets()
+  const widgetId = 'current-weather'
+  const { size } = useWidgetSize(widgetId)
+
+  // React Query로 날씨 데이터 조회 (커스터마이징 가능한 인터벌)
   const { data: weatherResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['currentWeather', UIJEONGBU_COORDS.lat, UIJEONGBU_COORDS.lon],
     queryFn: () => getCurrentWeather(UIJEONGBU_COORDS.lat, UIJEONGBU_COORDS.lon),
-    refetchInterval: 5 * 60 * 1000, // 5분마다 새로고침
-    staleTime: 4 * 60 * 1000, // 4분간 데이터를 fresh로 간주
+    refetchInterval: refreshIntervals[widgetId] || 5 * 60 * 1000,
+    staleTime: 4 * 60 * 1000,
     retry: 2,
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onSuccess: () => updateLastRefresh(widgetId)
   })
 
   const weatherData = weatherResponse?.data
@@ -64,95 +72,101 @@ function CurrentWeather() {
       headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
     >
 
+      {/* 핵심 정보 - 항상 표시 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="text-6xl">
+        <div className="widget-icon">
           {weatherData.skyIcon}
         </div>
         <div className="text-right">
-          <div className="text-4xl font-bold text-gray-800">
+          <div className="widget-temp font-bold text-gray-800 dark:text-white">
             {typeof weatherData.temperature === 'number' ? weatherData.temperature.toFixed(1) : weatherData.temperature}°C
           </div>
-          <div className="text-sm text-gray-600">
+          <div className="widget-text-sm text-gray-600 dark:text-gray-300">
             {weatherData.sky}
           </div>
           {weatherData.feelsLike && (
-            <div className="text-xs text-gray-500">
+            <div className="widget-text-sm text-gray-500 dark:text-gray-400">
               체감 {typeof weatherData.feelsLike === 'number' ? weatherData.feelsLike.toFixed(1) : weatherData.feelsLike}°C
             </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-        <div className="text-center p-3 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-600">습도</div>
-          <div className="text-xl font-semibold text-blue-600">
-            {Math.round(weatherData.humidity)}%
-          </div>
-        </div>
-        <div className="text-center p-3 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-600">풍속</div>
-          <div className="text-xl font-semibold text-green-600">
-            {typeof weatherData.windSpeed === 'number' ? weatherData.windSpeed.toFixed(1) : weatherData.windSpeed}m/s
-          </div>
-          {weatherData.windDirection && (
-            <div className="text-xs text-gray-500">
-              {weatherData.windDirection}
+      {/* 기본 정보 - 중간 크기 이상에서 표시 */}
+      {size !== 'small' && (
+        <div className="grid grid-cols-2 widget-gap mb-4">
+          <div className="text-center widget-padding bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="widget-text-sm text-gray-600 dark:text-gray-300">습도</div>
+            <div className="widget-text-lg font-semibold text-blue-600 dark:text-blue-400">
+              {Math.round(weatherData.humidity)}%
             </div>
-          )}
+          </div>
+          <div className="text-center widget-padding bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div className="widget-text-sm text-gray-600 dark:text-gray-300">풍속</div>
+            <div className="widget-text-lg font-semibold text-green-600 dark:text-green-400">
+              {typeof weatherData.windSpeed === 'number' ? weatherData.windSpeed.toFixed(1) : weatherData.windSpeed}m/s
+            </div>
+            {weatherData.windDirection && (
+              <div className="widget-text-sm text-gray-500 dark:text-gray-400">
+                {weatherData.windDirection}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 추가 정보 */}
-      {(weatherData.pressure || weatherData.visibility || weatherData.precipitation > 0) && (
-        <div className="grid grid-cols-3 gap-2 text-sm mb-4">
+      {/* 추가 정보 - 큰 크기에서만 표시 */}
+      {size === 'large' && (weatherData.pressure || weatherData.visibility || weatherData.precipitation > 0) && (
+        <div className="grid grid-cols-3 widget-gap mb-4">
           {weatherData.pressure && (
-            <div className="text-center p-2 bg-gray-50 rounded">
-              <div className="text-xs text-gray-600">기압</div>
-              <div className="font-semibold">{weatherData.pressure}hPa</div>
+            <div className="text-center widget-padding bg-gray-50 dark:bg-gray-700 rounded">
+              <div className="widget-text-sm text-gray-600 dark:text-gray-300">기압</div>
+              <div className="font-semibold dark:text-white">{weatherData.pressure}hPa</div>
             </div>
           )}
           {weatherData.visibility && (
-            <div className="text-center p-2 bg-gray-50 rounded">
-              <div className="text-xs text-gray-600">가시거리</div>
-              <div className="font-semibold">{weatherData.visibility}km</div>
+            <div className="text-center widget-padding bg-gray-50 dark:bg-gray-700 rounded">
+              <div className="widget-text-sm text-gray-600 dark:text-gray-300">가시거리</div>
+              <div className="font-semibold dark:text-white">{weatherData.visibility}km</div>
             </div>
           )}
           {weatherData.precipitation > 0 && (
-            <div className="text-center p-2 bg-blue-50 rounded">
-              <div className="text-xs text-blue-600">강수량</div>
-              <div className="font-semibold text-blue-700">{weatherData.precipitation.toFixed(1)}mm</div>
+            <div className="text-center widget-padding bg-blue-50 dark:bg-blue-900/30 rounded">
+              <div className="widget-text-sm text-blue-600 dark:text-blue-400">강수량</div>
+              <div className="font-semibold text-blue-700 dark:text-blue-300">{weatherData.precipitation.toFixed(1)}mm</div>
             </div>
           )}
         </div>
       )}
 
-      {/* 일출/일몰 정보 */}
-      {(weatherData.sunrise || weatherData.sunset) && (
-        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+      {/* 일출/일몰 정보 - 큰 크기에서만 표시 */}
+      {size === 'large' && (weatherData.sunrise || weatherData.sunset) && (
+        <div className="grid grid-cols-2 widget-gap mb-4">
           {weatherData.sunrise && (
-            <div className="text-center p-2 bg-yellow-50 rounded">
-              <div className="text-xs text-yellow-600">🌅 일출</div>
-              <div className="font-semibold text-yellow-700">{weatherData.sunrise}</div>
+            <div className="text-center widget-padding bg-yellow-50 dark:bg-yellow-900/30 rounded">
+              <div className="widget-text-sm text-yellow-600 dark:text-yellow-400">🌅 일출</div>
+              <div className="font-semibold text-yellow-700 dark:text-yellow-300">{weatherData.sunrise}</div>
             </div>
           )}
           {weatherData.sunset && (
-            <div className="text-center p-2 bg-orange-50 rounded">
-              <div className="text-xs text-orange-600">🌅 일몰</div>
-              <div className="font-semibold text-orange-700">{weatherData.sunset}</div>
+            <div className="text-center widget-padding bg-orange-50 dark:bg-orange-900/30 rounded">
+              <div className="widget-text-sm text-orange-600 dark:text-orange-400">🌇 일몰</div>
+              <div className="font-semibold text-orange-700 dark:text-orange-300">{weatherData.sunset}</div>
             </div>
           )}
         </div>
       )}
 
       <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
-          <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+        <div className="inline-flex items-center widget-gap px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full widget-text-sm">
+          <span className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse"></span>
           {weatherData.location ? `${weatherData.location} • ` : ''}실시간 업데이트
         </div>
       </div>
     </WidgetCard>
   )
-}
+})
+
+CurrentWeather.displayName = 'CurrentWeather'
 
 export default CurrentWeather

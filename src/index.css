@@ -4,9 +4,31 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans;
+    @apply text-gray-900 dark:text-gray-100 font-sans;
     margin: 0;
     padding: 0;
+    /* 글래스모피즘 배경 그라데이션 */
+    background: linear-gradient(135deg,
+      #f0f4ff 0%,
+      #e0e7ff 25%,
+      #dbeafe 50%,
+      #e0f2fe 75%,
+      #f0f9ff 100%
+    );
+    background-attachment: fixed;
+    min-height: 100vh;
+    transition: background 0.3s ease;
+  }
+
+  /* 다크모드 배경 그라데이션 */
+  .dark body {
+    background: linear-gradient(135deg,
+      #0f172a 0%,
+      #1e293b 25%,
+      #1e3a8a 50%,
+      #312e81 75%,
+      #1e1b4b 100%
+    );
   }
 }
 
@@ -44,5 +66,448 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1.5rem;
+  }
+}
+
+/* React Grid Layout 커스텀 스타일 */
+@layer utilities {
+  /* 그리드 레이아웃 기본 스타일 */
+  .react-grid-layout {
+    position: relative;
+  }
+
+  /* 위젯 컨테이너 스타일 */
+  .react-grid-item {
+    transition: all 200ms ease;
+    transition-property: left, top, width, height;
+  }
+
+  /* 드래그 중 스타일 */
+  .react-grid-item.react-grid-placeholder {
+    @apply bg-blue-200 dark:bg-blue-800 opacity-30 rounded-lg;
+    transition-duration: 100ms;
+    z-index: 2;
+  }
+
+  .react-grid-item.cssTransforms {
+    transition-property: transform, width, height;
+  }
+
+  .react-grid-item.resizing {
+    transition: none;
+    z-index: 100;
+  }
+
+  .react-grid-item.react-draggable-dragging {
+    transition: none;
+    z-index: 100;
+    @apply opacity-90;
+  }
+
+  .react-grid-item.dropping {
+    visibility: hidden;
+  }
+
+  /* 리사이즈 핸들 스타일 개선 */
+  .react-resizable-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+  }
+
+  .react-resizable-handle-se {
+    bottom: 0;
+    right: 0;
+    cursor: se-resize;
+  }
+
+  .react-resizable-handle-se::after {
+    content: "";
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 8px;
+    height: 8px;
+    border-right: 3px solid rgba(59, 130, 246, 0.6);
+    border-bottom: 3px solid rgba(59, 130, 246, 0.6);
+    transition: all 200ms ease;
+  }
+
+  /* 다크 모드 리사이즈 핸들 */
+  .dark .react-resizable-handle-se::after {
+    border-right-color: rgba(96, 165, 250, 0.8);
+    border-bottom-color: rgba(96, 165, 250, 0.8);
+  }
+
+  /* 편집 모드에서 핸들 강조 */
+  .react-grid-item:hover .react-resizable-handle-se::after {
+    border-right-color: rgba(59, 130, 246, 1);
+    border-bottom-color: rgba(59, 130, 246, 1);
+    width: 10px;
+    height: 10px;
+  }
+
+  .dark .react-grid-item:hover .react-resizable-handle-se::after {
+    border-right-color: rgba(96, 165, 250, 1);
+    border-bottom-color: rgba(96, 165, 250, 1);
+  }
+
+  /* 위젯 컨테이너 최적화 */
+  .widget-container {
+    @apply h-full rounded-lg overflow-hidden bg-white dark:bg-gray-800
+           shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  /* 드래그 중 위젯 스타일 */
+  .react-draggable-dragging .widget-container {
+    @apply shadow-2xl ring-2 ring-blue-500 dark:ring-blue-400;
+  }
+
+  /* Static 위젯 (드래그 불가) 표시 */
+  .react-grid-item.static {
+    @apply cursor-default;
+  }
+
+  /* 반응형 그리드 여백 조정 */
+  @media (max-width: 768px) {
+    .react-grid-layout {
+      margin: -8px;
+    }
+
+    .react-grid-item {
+      touch-action: none;
+    }
+  }
+
+  /* ============================================= */
+  /* Container Queries - 위젯 크기 반응형 시스템  */
+  /* ============================================= */
+
+  /* 위젯 컨테이너를 container로 설정 */
+  .widget-container {
+    container-type: inline-size;
+    container-name: widget;
+  }
+
+  /* 온도 텍스트 반응형 */
+  .widget-temp {
+    font-size: 2rem;
+    line-height: 1.2;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 300px) {
+    .widget-temp {
+      font-size: 2.5rem;
+    }
+  }
+
+  @container widget (min-width: 500px) {
+    .widget-temp {
+      font-size: 3.5rem;
+    }
+  }
+
+  /* 아이콘 크기 반응형 */
+  .widget-icon {
+    font-size: 2rem;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 300px) {
+    .widget-icon {
+      font-size: 3rem;
+    }
+  }
+
+  @container widget (min-width: 500px) {
+    .widget-icon {
+      font-size: 4rem;
+    }
+  }
+
+  /* 작은 텍스트 반응형 */
+  .widget-text-sm {
+    font-size: 0.75rem;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-text-sm {
+      font-size: 0.875rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-text-sm {
+      font-size: 1rem;
+    }
+  }
+
+  /* 일반 텍스트 반응형 */
+  .widget-text {
+    font-size: 0.875rem;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-text {
+      font-size: 1rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-text {
+      font-size: 1.125rem;
+    }
+  }
+
+  /* 큰 텍스트 반응형 */
+  .widget-text-lg {
+    font-size: 1.125rem;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-text-lg {
+      font-size: 1.25rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-text-lg {
+      font-size: 1.5rem;
+    }
+  }
+
+  /* 패딩 반응형 */
+  .widget-padding {
+    padding: 0.5rem;
+    transition: padding 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-padding {
+      padding: 1rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-padding {
+      padding: 1.5rem;
+    }
+  }
+
+  /* 간격 반응형 */
+  .widget-gap {
+    gap: 0.5rem;
+    transition: gap 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-gap {
+      gap: 0.75rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-gap {
+      gap: 1rem;
+    }
+  }
+
+  /* ============================================= */
+  /* 글래스모피즘 디자인 시스템                    */
+  /* ============================================= */
+
+  /* 기본 글래스 카드 */
+  .glass-card {
+    @apply bg-white/10 dark:bg-gray-900/40 backdrop-blur-lg border border-white/20 dark:border-white/10
+           shadow-glass rounded-xl transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    @apply bg-white/15 dark:bg-gray-900/50 shadow-glass-lg;
+  }
+
+  /* 대형 글래스 패널 */
+  .glass-panel {
+    @apply bg-white/5 dark:bg-gray-900/30 backdrop-blur-xl border border-white/10 dark:border-white/5
+           shadow-glass-lg rounded-2xl transition-all duration-300;
+  }
+
+  /* 글래스 버튼 */
+  .glass-button {
+    @apply bg-white/10 dark:bg-gray-900/40 backdrop-blur-md border border-white/20 dark:border-white/10
+           shadow-glass rounded-lg px-4 py-2 transition-all duration-200
+           hover:bg-white/20 hover:dark:bg-gray-900/60 hover:shadow-glass-lg
+           active:scale-95;
+  }
+
+  /* 글래스 인풋 */
+  .glass-input {
+    @apply bg-white/5 dark:bg-gray-900/30 backdrop-blur-md border border-white/20 dark:border-white/10
+           shadow-glass rounded-lg px-4 py-2 transition-all duration-200
+           focus:bg-white/10 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20
+           placeholder:text-gray-400 dark:placeholder:text-gray-500;
+  }
+
+  /* 글래스 뱃지 */
+  .glass-badge {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-full
+           bg-white/10 dark:bg-gray-900/40 backdrop-blur-md
+           border border-white/20 dark:border-white/10
+           text-xs font-medium transition-all duration-200;
+  }
+
+  /* 글로우 효과 변형 */
+  .glass-glow-blue {
+    @apply shadow-glow-blue hover:shadow-glow-blue-lg;
+  }
+
+  .glass-glow-green {
+    @apply shadow-glow-green;
+  }
+
+  .glass-glow-yellow {
+    @apply shadow-glow-yellow;
+  }
+
+  .glass-glow-red {
+    @apply shadow-glow-red;
+  }
+
+  /* 헤더/푸터 전용 글래스 */
+  .glass-header {
+    @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl
+           border-b border-white/20 dark:border-gray-700/50
+           shadow-glass transition-all duration-300;
+  }
+
+  .glass-footer {
+    @apply bg-white/60 dark:bg-gray-900/60 backdrop-blur-lg
+           border-t border-white/20 dark:border-gray-700/50
+           transition-all duration-300;
+  }
+
+  /* 위젯 컨테이너 글래스 스타일 (기존 스타일 오버라이드) */
+  .widget-container {
+    @apply bg-white/10 dark:bg-gray-900/40 backdrop-blur-lg
+           border border-white/20 dark:border-white/10
+           shadow-glass hover:shadow-glass-lg transition-all duration-300;
+  }
+
+  /* 드래그 중 글로우 강화 */
+  .react-draggable-dragging .widget-container {
+    @apply shadow-glow-blue-lg ring-2 ring-blue-400/30;
+  }
+
+  /* ============================================= */
+  /* 추가 글래스모피즘 컴포넌트                    */
+  /* ============================================= */
+
+  /* 탭 버튼 전용 */
+  .glass-tab {
+    @apply bg-white/5 dark:bg-gray-900/30 backdrop-blur-md
+           border-b-2 border-transparent transition-all duration-200
+           hover:bg-white/10 dark:hover:bg-gray-900/40
+           text-gray-600 dark:text-gray-400;
+  }
+
+  .glass-tab-active {
+    @apply bg-blue-500/20 dark:bg-blue-500/30
+           border-b-2 border-blue-400 dark:border-blue-500
+           text-blue-600 dark:text-blue-400 font-semibold;
+  }
+
+  /* 테이블 전용 */
+  .glass-table {
+    @apply w-full bg-white/5 dark:bg-gray-900/20 backdrop-blur-md
+           border border-white/20 dark:border-white/10 rounded-xl overflow-hidden;
+  }
+
+  .glass-table-header {
+    @apply bg-white/10 dark:bg-gray-900/40 backdrop-blur-lg
+           border-b border-white/20 dark:border-white/10;
+  }
+
+  .glass-table-row {
+    @apply bg-white/5 dark:bg-gray-900/20 backdrop-blur-md
+           hover:bg-white/10 dark:hover:bg-gray-900/30 transition-colors duration-150
+           border-b border-white/10 dark:border-white/5 last:border-b-0;
+  }
+
+  /* 클릭 가능 카드 */
+  .glass-card-interactive {
+    @apply bg-white/10 dark:bg-gray-900/40 backdrop-blur-lg border border-white/20 dark:border-white/10
+           shadow-glass rounded-xl transition-all duration-300 cursor-pointer
+           hover:bg-white/15 hover:dark:bg-gray-900/50 hover:shadow-glow-blue
+           hover:scale-105 active:scale-95;
+  }
+
+  /* ============================================= */
+  /* Container Queries 확장                       */
+  /* ============================================= */
+
+  /* 제목 크기 반응형 */
+  .widget-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+    transition: font-size 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-heading {
+      font-size: 1.125rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-heading {
+      font-size: 1.25rem;
+    }
+  }
+
+  /* 버튼 크기 반응형 */
+  .widget-button {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    min-height: 2rem;
+    transition: all 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      min-height: 2.5rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-button {
+      padding: 0.625rem 1.25rem;
+      font-size: 1rem;
+      min-height: 2.75rem;
+    }
+  }
+
+  /* 그리드 간격 반응형 */
+  .widget-grid-gap {
+    gap: 0.5rem;
+    transition: gap 200ms ease;
+  }
+
+  @container widget (min-width: 400px) {
+    .widget-grid-gap {
+      gap: 0.75rem;
+    }
+  }
+
+  @container widget (min-width: 600px) {
+    .widget-grid-gap {
+      gap: 1rem;
+    }
   }
 }

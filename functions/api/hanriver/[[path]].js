@@ -1,7 +1,7 @@
 /**
  * Cloudflare Pages Function - 한강홍수통제소 API 프록시
  *
- * 경로: /api/hanriver/* → http://apis.data.go.kr/B500001/rwis/waterLevel/*
+ * 경로: /api/hanriver/* → https://api.hrfco.go.kr/*
  * 용도: CORS 문제 해결 및 API 키 보호
  */
 
@@ -9,9 +9,10 @@ export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
 
-  // /api/hanriver/list → http://apis.data.go.kr/B500001/rwis/waterLevel/list
-  const pathSegments = url.pathname.split('/api/hanriver/')[1] || 'list';
-  const targetUrl = `http://apis.data.go.kr/B500001/rwis/waterLevel/${pathSegments}${url.search}`;
+  // /api/hanriver/52832662-D130-4239-9C5F-730AD3BE6BC6/waterlevel/list/10M/1018665.json
+  // → https://api.hrfco.go.kr/52832662-D130-4239-9C5F-730AD3BE6BC6/waterlevel/list/10M/1018665.json
+  const pathSegments = url.pathname.split('/api/hanriver/')[1] || '';
+  const targetUrl = `https://api.hrfco.go.kr/${pathSegments}${url.search}`;
 
   console.log('Han River API Proxy:', targetUrl);
 

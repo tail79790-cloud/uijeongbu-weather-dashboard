@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getLivingWeatherIndex } from '../../services/kmaApi';
+import { useWidgetSize } from '../../hooks/useWidgetSize';
 import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
@@ -29,6 +30,8 @@ const ASTHMA_INFO = {
 };
 
 const LivingWeatherWidget = () => {
+  const { size } = useWidgetSize('living-weather');
+
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['livingWeatherIndex'],
     queryFn: () => getLivingWeatherIndex({ areaNo: '1100000000' }),
@@ -67,15 +70,22 @@ const LivingWeatherWidget = () => {
   const airInfo = indexData.airDiffusion ? AIR_DIFFUSION_INFO[indexData.airDiffusion.text] || AIR_DIFFUSION_INFO['보통'] : AIR_DIFFUSION_INFO['보통'];
   const asthmaInfo = indexData.asthma ? ASTHMA_INFO[indexData.asthma.text] || ASTHMA_INFO['낮음'] : ASTHMA_INFO['낮음'];
 
+  // 그리드 레이아웃 동적 설정
+  const gridClass = size === 'small'
+    ? 'grid grid-cols-1 gap-4'
+    : size === 'medium'
+    ? 'grid grid-cols-2 gap-4'
+    : 'grid grid-cols-1 md:grid-cols-3 gap-4';
+
   return (
     <WidgetCard
       title="🌡️ 생활기상지수"
-      subtitle={indexData.lastUpdate}
+      subtitle={size !== 'small' ? indexData.lastUpdate : undefined}
       borderColor={WIDGET_BORDER_COLORS.INFO}
       headerAction={<RefreshButton onRefresh={refetch} isLoading={isLoading} />}
     >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* 자외선지수 */}
+        <div className={gridClass}>
+          {/* 자외선지수 - 항상 표시 */}
           {indexData.uv && (
             <div className={`${uvInfo.bg} rounded-lg p-4 border ${uvInfo.border}`}>
               <div className="text-center">
@@ -87,19 +97,21 @@ const LivingWeatherWidget = () => {
                 <div className={`text-sm font-medium ${uvInfo.color}`}>
                   {indexData.uv.text}
                 </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  {indexData.uv.text === '낮음' && '외출 안전'}
-                  {indexData.uv.text === '보통' && '자외선 차단제 권장'}
-                  {indexData.uv.text === '높음' && '자외선 차단 필수'}
-                  {indexData.uv.text === '매우 높음' && '외출 시 주의'}
-                  {indexData.uv.text === '위험' && '야외활동 자제'}
-                </div>
+                {size !== 'small' && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    {indexData.uv.text === '낮음' && '외출 안전'}
+                    {indexData.uv.text === '보통' && '자외선 차단제 권장'}
+                    {indexData.uv.text === '높음' && '자외선 차단 필수'}
+                    {indexData.uv.text === '매우 높음' && '외출 시 주의'}
+                    {indexData.uv.text === '위험' && '야외활동 자제'}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* 대기확산지수 */}
-          {indexData.airDiffusion && (
+          {/* 대기확산지수 - medium 이상 */}
+          {size !== 'small' && indexData.airDiffusion && (
             <div className={`${airInfo.bg} rounded-lg p-4 border ${airInfo.border}`}>
               <div className="text-center">
                 <div className="text-2xl mb-2">{airInfo.icon}</div>
@@ -120,8 +132,8 @@ const LivingWeatherWidget = () => {
             </div>
           )}
 
-          {/* 천식·폐질환 가능지수 */}
-          {indexData.asthma && (
+          {/* 천식·폐질환 가능지수 - large에서만 */}
+          {size === 'large' && indexData.asthma && (
             <div className={`${asthmaInfo.bg} rounded-lg p-4 border ${asthmaInfo.border}`}>
               <div className="text-center">
                 <div className="text-2xl mb-2">{asthmaInfo.icon}</div>
@@ -143,17 +155,22 @@ const LivingWeatherWidget = () => {
           )}
         </div>
 
-        {/* 안내 메시지 */}
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-xs text-blue-800">
-            💡 <strong>생활기상지수란?</strong> 날씨가 생활에 미치는 영향을 지수화한 정보입니다.
-            자외선, 대기확산, 천식·폐질환 등 다양한 지수를 제공합니다.
-          </p>
-        </div>
+        {/* 안내 메시지 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs text-blue-800">
+              💡 <strong>생활기상지수란?</strong> 날씨가 생활에 미치는 영향을 지수화한 정보입니다.
+              자외선, 대기확산, 천식·폐질환 등 다양한 지수를 제공합니다.
+            </p>
+          </div>
+        )}
 
-        <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
-          자동 갱신: 1시간마다 • 출처: 기상청
-        </div>
+        {/* 갱신 정보 - medium 이상에서만 표시 */}
+        {size !== 'small' && (
+          <div className="text-xs text-gray-500 text-center pt-4 mt-4 border-t">
+            자동 갱신: 1시간마다 • 출처: 기상청
+          </div>
+        )}
     </WidgetCard>
   );
 };

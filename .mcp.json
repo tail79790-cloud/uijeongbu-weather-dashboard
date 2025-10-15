@@ -1,0 +1,68 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {}
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@executeautomation/playwright-mcp-server"
+      ],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "postgresql": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres"
+      ],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": ""
+      }
+    },
+    "browser": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {}
+    },
+    "korea_weather": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@ohhan777/korea_weather",
+        "--key",
+        "379ba054-9b3a-4e74-a958-f8e4c1e6b4cc",
+        "--profile",
+        "nearby-flamingo-5Jzi3u"
+      ]
+    },
+    "youtube-toolbox": {
+      "command": "/Users/seunghyeonkim/Desktop/MCP/py-mcp-youtube-toolbox/.venv/bin/python",
+      "args": [
+        "/Users/seunghyeonkim/Desktop/MCP/py-mcp-youtube-toolbox/server.py"
+      ],
+      "env": {
+        "YOUTUBE_API_KEY": "AIzaSyC4WDFD8voZMmObycTcTcWpYfgNZu3oKIw"
+      }
+    }
+  }
+}

@@ -1,30 +1,14 @@
 import { lazy, Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, useTheme } from './contexts/ThemeContext'
+import { WidgetProvider } from './contexts/WidgetContext'
+import { DeploymentProvider } from './contexts/DeploymentContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import DashboardGrid from './components/layouts/DashboardGrid'
 import './index.css'
 
-// 중요한 위젯만 즉시 로드
-import WeatherAlertWidget from './components/widgets/WeatherAlertWidget'
-import CurrentWeather from './components/widgets/CurrentWeather'
-
-// 나머지는 lazy loading으로 분리
-const RainfallFloodWidget = lazy(() => import('./components/widgets/RainfallFloodWidget'))
-const HourlyForecastWidget = lazy(() => import('./components/widgets/HourlyForecastWidget'))
-const DailyForecastWidget = lazy(() => import('./components/widgets/DailyForecastWidget'))
-const MidForecastWidget = lazy(() => import('./components/widgets/MidForecastWidget'))
-const AirQualityWidget = lazy(() => import('./components/widgets/AirQualityWidget'))
-const LivingWeatherWidget = lazy(() => import('./components/widgets/LivingWeatherWidget'))
-const NotificationSettings = lazy(() => import('./components/NotificationSettings'))
-
-// 로딩 컴포넌트
-const WidgetLoader = () => (
-  <div className="weather-card">
-    <div className="flex items-center justify-center h-32">
-      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  </div>
-)
+// Lazy load 대시보드 컨트롤
+const DashboardControls = lazy(() => import('./components/DashboardControls'))
 
 // QueryClient 설정 - 안정적인 오류 처리
 const queryClient = new QueryClient({
@@ -39,6 +23,14 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+const ControlLoader = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+    <div className="flex items-center justify-center">
+      <div className="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  </div>
+)
 
 function AppContent() {
   const { isDark, toggleTheme } = useTheme();
@@ -67,68 +59,19 @@ function AppContent() {
         </div>
       </header>
 
-        <main className="container mx-auto px-4 py-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* 긴급 특보 (최상단, 전체 너비) */}
-            <ErrorBoundary>
-              <WeatherAlertWidget />
-            </ErrorBoundary>
+      <main className="w-full px-4 py-6">
+          {/* 대시보드 컨트롤 */}
+          <ErrorBoundary>
+            <Suspense fallback={<ControlLoader />}>
+              <DashboardControls />
+            </Suspense>
+          </ErrorBoundary>
 
-            {/* 현재 날씨 & 강수량/수위 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ErrorBoundary>
-                <CurrentWeather />
-              </ErrorBoundary>
-              <ErrorBoundary>
-                <Suspense fallback={<WidgetLoader />}>
-                  <RainfallFloodWidget />
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-
-            {/* 시간별 예보 (전체 너비) */}
-            <ErrorBoundary>
-              <Suspense fallback={<WidgetLoader />}>
-                <HourlyForecastWidget />
-              </Suspense>
-            </ErrorBoundary>
-
-            {/* 3일 예보 (전체 너비) */}
-            <ErrorBoundary>
-              <Suspense fallback={<WidgetLoader />}>
-                <DailyForecastWidget />
-              </Suspense>
-            </ErrorBoundary>
-
-            {/* 중기예보 (전체 너비) */}
-            <ErrorBoundary>
-              <Suspense fallback={<WidgetLoader />}>
-                <MidForecastWidget />
-              </Suspense>
-            </ErrorBoundary>
-
-            {/* 대기질 & 생활기상지수 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ErrorBoundary>
-                <Suspense fallback={<WidgetLoader />}>
-                  <AirQualityWidget />
-                </Suspense>
-              </ErrorBoundary>
-              <ErrorBoundary>
-                <Suspense fallback={<WidgetLoader />}>
-                  <LivingWeatherWidget />
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-
-            {/* 알림 설정 */}
-            <ErrorBoundary>
-              <Suspense fallback={<WidgetLoader />}>
-                <NotificationSettings />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-        </main>
+          {/* 위젯 그리드 (경찰관 배치 관리 섹션 포함) */}
+          <ErrorBoundary>
+            <DashboardGrid />
+          </ErrorBoundary>
+      </main>
 
         <footer className="bg-white dark:bg-gray-800 border-t dark:border-gray-700 mt-12 py-6">
           <div className="container mx-auto px-4 text-center text-sm text-gray-600 dark:text-gray-300">
@@ -146,7 +89,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppContent />
+        <DeploymentProvider>
+          <WidgetProvider>
+            <AppContent />
+          </WidgetProvider>
+        </DeploymentProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

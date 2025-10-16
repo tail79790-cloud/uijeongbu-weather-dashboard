@@ -65,10 +65,10 @@ export const RISK_LEVELS = {
  */
 export function getRiskLevel(level, thresholds = {}) {
   const {
-    normal = 1.0,
-    caution = 1.5,
-    warning = 2.0,
-    danger = 2.5
+    normal = 2.5,   // 관심 수위 (한강홍수통제소 공식)
+    caution = 5.1,  // 주의 수위 (한강홍수통제소 공식)
+    warning = 6.0,  // 경계 수위 (한강홍수통제소 공식)
+    danger = 6.5    // 심각 수위 (한강홍수통제소 공식)
   } = thresholds;
 
   if (level >= danger) return RISK_LEVELS.DANGER;
@@ -85,7 +85,7 @@ export function getRiskLevel(level, thresholds = {}) {
  * @returns {number} 위험도 점수 (0-100)
  */
 export function calculateRiskScore(level, changeRate = 0, thresholds = {}) {
-  const { danger = 2.5 } = thresholds;
+  const { danger = 6.5 } = thresholds;  // 심각 수위 (한강홍수통제소 공식)
 
   // 기본 수위 점수 (0-70점)
   const levelScore = Math.min((level / danger) * 70, 70);
@@ -239,22 +239,22 @@ export function prepareChartData(series, thresholds = {}) {
     fullTime: item.time
   }));
 
-  // 참조선 (임계값)
+  // 참조선 (임계값) - 한강홍수통제소 공식
   const referenceLines = [
     {
-      y: thresholds.danger || 2.5,
+      y: thresholds.danger || 6.5,  // 심각 수위
       label: '위험',
       stroke: '#ef4444',
       strokeDasharray: '5 5'
     },
     {
-      y: thresholds.warning || 2.0,
+      y: thresholds.warning || 6.0,  // 경계 수위
       label: '경계',
       stroke: '#f97316',
       strokeDasharray: '5 5'
     },
     {
-      y: thresholds.caution || 1.5,
+      y: thresholds.caution || 5.1,  // 주의 수위
       label: '주의',
       stroke: '#eab308',
       strokeDasharray: '5 5'

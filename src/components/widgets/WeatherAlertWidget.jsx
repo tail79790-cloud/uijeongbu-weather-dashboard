@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getWeatherWarning, getWeatherWarningMsg } from '../../services/kmaApi';
 import { useWidgets } from '../../contexts/WidgetContext';
 import { useWidgetSize } from '../../hooks/useWidgetSize';
-import { formatKoreanDateTime, parseKMADateTime } from '../../utils/dateFormatter';
+import { formatKoreanDateTime, parseKMADateTime, getWeatherWarningMsgBase, getNextPublishTime } from '../../utils/dateFormatter';
 import { formatAlertText, REGION_CODES, REGION_NAMES } from '../../utils/alertFormatter';
 import RefreshButton from '../common/RefreshButton';
 
@@ -119,6 +119,92 @@ const AlertCard = ({ warning, message }) => {
   );
 };
 
+// 독립 통보문 섹션 컴포넌트
+const WeatherMessageSection = ({ messages, size }) => {
+  const [expanded, setExpanded] = useState(false);
+  const { baseDate, baseTime, publishHour } = getWeatherWarningMsgBase();
+  const { nextTime, timeUntil } = getNextPublishTime();
+
+  if (!messages || messages.length === 0) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📰</span>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">기상 통보문</h3>
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            발표 시각: {String(publishHour).padStart(2, '0')}:00
+          </span>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          현재 발효 중인 통보문이 없습니다
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+          다음 발표: {nextTime} ({timeUntil})
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📰</span>
+          <h3 className="font-semibold text-blue-800 dark:text-blue-300">기상 통보문</h3>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-600 text-white">
+            {messages.length}
+          </span>
+        </div>
+        <span className="text-xs text-blue-700 dark:text-blue-400 font-medium">
+          발표: {String(publishHour).padStart(2, '0')}:00 | 다음: {nextTime} ({timeUntil})
+        </span>
+      </div>
+
+      {/* 통보문 목록 */}
+      <div className="space-y-2">
+        {messages.slice(0, expanded || size === 'large' ? messages.length : 1).map((msg, index) => (
+          <div key={index} className="bg-white dark:bg-gray-800 rounded p-3 border border-blue-100 dark:border-blue-800">
+            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+              {formatAlertText(msg.t1) || msg.t1 || '통보문 내용이 없습니다.'}
+            </p>
+            {msg.tmFc && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                발표 시각: {formatKoreanDateTime(
+                  parseKMADateTime(
+                    String(msg.tmFc).slice(0, 8),
+                    String(msg.tmFc).slice(8, 12)
+                  )
+                )}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 더보기 버튼 - 통보문이 2개 이상이고 large가 아닐 때 */}
+      {messages.length > 1 && size !== 'large' && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-3 w-full text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+        >
+          {expanded ? '▼ 접기' : `▶ ${messages.length - 1}개 더보기`}
+        </button>
+      )}
+
+      {/* 발표 일정 안내 - large에서만 */}
+      {size === 'large' && (
+        <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+          <p className="text-xs text-blue-700 dark:text-blue-400">
+            💡 통보문은 하루 3회(05:00, 11:00, 17:00) 발표됩니다
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 메인 위젯
 const WeatherAlertWidget = memo(() => {
   const { refreshIntervals, updateLastRefresh } = useWidgets();
@@ -139,10 +225,27 @@ const WeatherAlertWidget = memo(() => {
   });
 
   // 기상특보 통보문 조회
+  // 통보문은 05:00, 11:00, 17:00에 발표되므로 발표 시각 근처에서는 더 자주 갱신
+  const getMessageRefetchInterval = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // 발표 시각 (05, 11, 17시) 전후 30분은 1분마다 갱신
+    const publishHours = [5, 11, 17];
+    const isNearPublishTime = publishHours.some(hour => {
+      const timeDiff = Math.abs((currentHour * 60 + currentMinute) - (hour * 60));
+      return timeDiff <= 30; // 발표 시각 전후 30분
+    });
+
+    // 발표 시각 근처: 1분마다, 그 외: 10분마다
+    return isNearPublishTime ? 60 * 1000 : 10 * 60 * 1000;
+  };
+
   const { data: messageData, isLoading: messageLoading, refetch: refetchMessage } = useQuery({
     queryKey: ['weatherWarningMsg', currentRegionCode],
     queryFn: () => getWeatherWarningMsg(currentRegionCode || '109'),
-    refetchInterval: refreshIntervals[widgetId] || 60 * 1000,
+    refetchInterval: getMessageRefetchInterval(),
     staleTime: 30 * 1000,
   });
 
@@ -222,7 +325,7 @@ const WeatherAlertWidget = memo(() => {
     </div>
   );
 
-  // 특보 없음 - Compact 모드
+  // 특보 없음 - Compact 모드 (하지만 통보문은 독립적으로 표시)
   if (alertsWithMessages.length === 0) {
     return (
       <div className="weather-card border-l-4 border-green-400">
@@ -232,7 +335,8 @@ const WeatherAlertWidget = memo(() => {
         </div>
 
         <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
+          {/* 특보 없음 상태 */}
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,6 +367,9 @@ const WeatherAlertWidget = memo(() => {
               </select>
             )}
           </div>
+
+          {/* 독립 통보문 섹션 - 특보 유무와 관계없이 표시 */}
+          <WeatherMessageSection messages={messages} size={size} />
         </div>
       </div>
     );
@@ -305,6 +412,9 @@ const WeatherAlertWidget = memo(() => {
             외 {alertsWithMessages.length - maxAlerts}개 특보 (위젯 확대 시 표시)
           </div>
         )}
+
+        {/* 독립 통보문 섹션 - 특보가 있을 때도 별도로 표시 */}
+        <WeatherMessageSection messages={messages} size={size} />
 
         {/* 주의사항 - large에서만 표시 */}
         {size === 'large' && (

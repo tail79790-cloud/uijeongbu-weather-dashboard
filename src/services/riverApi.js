@@ -15,10 +15,10 @@ export const RIVER_STATIONS = {
     name: '신곡교',
     location: '중랑천',
     thresholds: {
-      normal: 1.0,
-      caution: 1.5,
-      warning: 2.0,
-      danger: 2.5
+      normal: 2.5,   // 관심 수위 (한강홍수통제소 공식)
+      caution: 5.1,  // 주의 수위 (한강홍수통제소 공식)
+      warning: 6.0,  // 경계 수위 (한강홍수통제소 공식)
+      danger: 6.5    // 심각 수위 (한강홍수통제소 공식)
     }
   },
   GEUMSIN: {
@@ -26,10 +26,10 @@ export const RIVER_STATIONS = {
     name: '금신교',
     location: '중랑천',
     thresholds: {
-      normal: 1.0,
-      caution: 1.5,
-      warning: 2.0,
-      danger: 2.5
+      normal: 2.5,   // 관심 수위 (한강홍수통제소 공식)
+      caution: 5.1,  // 주의 수위 (한강홍수통제소 공식)
+      warning: 6.0,  // 경계 수위 (한강홍수통제소 공식)
+      danger: 6.5    // 심각 수위 (한강홍수통제소 공식)
     }
   }
 };

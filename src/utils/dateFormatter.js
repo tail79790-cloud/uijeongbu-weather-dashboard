@@ -144,6 +144,85 @@ export function getVilageFcstBase(date) {
 }
 
 /**
+ * 기상특보 통보문 발표 시각 계산
+ * 05:00, 11:00, 17:00에 발표
+ * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
+ * @returns {{baseDate: string, baseTime: string, publishHour: number}} 발표 시각
+ */
+export function getWeatherWarningMsgBase(date) {
+  let baseDate = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
+  const hour = baseDate.getHours();
+
+  // 발표 시각: 05:00, 11:00, 17:00
+  let baseHour;
+  if (hour < 5) {
+    // 00:00-04:59 → 전날 17:00
+    baseHour = 17;
+    baseDate.setDate(baseDate.getDate() - 1);
+  } else if (hour < 11) {
+    // 05:00-10:59 → 오늘 05:00
+    baseHour = 5;
+  } else if (hour < 17) {
+    // 11:00-16:59 → 오늘 11:00
+    baseHour = 11;
+  } else {
+    // 17:00-23:59 → 오늘 17:00
+    baseHour = 17;
+  }
+
+  return {
+    baseDate: formatDateToKMA(baseDate),
+    baseTime: `${String(baseHour).padStart(2, '0')}00`,
+    publishHour: baseHour
+  };
+}
+
+/**
+ * 다음 통보문 발표 시각 계산
+ * @param {Date} date - 기준 날짜 (기본값: 현재 KST)
+ * @returns {{nextTime: string, timeUntil: string, nextDate: Date}} 다음 발표 정보
+ */
+export function getNextPublishTime(date) {
+  const now = date ? toZonedTime(date, KST_TIMEZONE) : getKSTNow();
+  const hour = now.getHours();
+
+  // 발표 시각: 05:00, 11:00, 17:00
+  const publishHours = [5, 11, 17];
+
+  // 다음 발표 시각 찾기
+  let nextHour = publishHours.find(h => h > hour);
+  let nextDate = new Date(now);
+
+  if (!nextHour) {
+    // 17시 이후면 다음날 05시
+    nextHour = 5;
+    nextDate.setDate(nextDate.getDate() + 1);
+  }
+
+  nextDate.setHours(nextHour, 0, 0, 0);
+
+  // 남은 시간 계산
+  const diffMs = nextDate - now;
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  let timeUntil;
+  if (diffHours === 0) {
+    timeUntil = `${diffMins}분 후`;
+  } else if (diffMins === 0) {
+    timeUntil = `${diffHours}시간 후`;
+  } else {
+    timeUntil = `${diffHours}시간 ${diffMins}분 후`;
+  }
+
+  return {
+    nextTime: `${String(nextHour).padStart(2, '0')}:00`,
+    timeUntil,
+    nextDate
+  };
+}
+
+/**
  * 한국어 날짜 포맷팅
  * @param {Date} date - 포맷팅할 날짜
  * @param {string} formatStr - 포맷 문자열 (date-fns 형식)
@@ -197,6 +276,8 @@ export default {
   getUltraSrtNcstBase,
   getUltraSrtFcstBase,
   getVilageFcstBase,
+  getWeatherWarningMsgBase,
+  getNextPublishTime,
   formatKoreanDate,
   formatKoreanTime,
   formatKoreanDateTime,

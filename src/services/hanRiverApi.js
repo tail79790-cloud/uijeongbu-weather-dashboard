@@ -513,6 +513,196 @@ export const getStationInfo = async () => {
   }
 };
 
+/**
+ * 수위 시계열 데이터 조회 (최근 N시간)
+ * @param {string} stationCode - 관측소 코드 (1018665: 신곡교, 1018666: 금신교)
+ * @param {number} hours - 조회 시간 범위 (기본: 3시간)
+ * @returns {Promise<Object>} 시계열 데이터
+ */
+export const getWaterLevelSeries = async (stationCode = UIJEONGBU_STATIONS.SINGOK, hours = 3) => {
+  const requestInfo = {
+    stationCode,
+    stationName: stationCode === UIJEONGBU_STATIONS.SINGOK ? '신곡교' : '금신교',
+    hours
+  };
+
+  try {
+    // 시작/종료 시간 계산 (현재부터 N시간 전까지)
+    const endTime = new Date();
+    const startTime = subHours(endTime, hours);
+
+    const startTimeStr = formatDateTime(startTime);
+    const endTimeStr = formatDateTime(endTime);
+
+    // JSON API 엔드포인트 (시간 범위 조회)
+    const endpoint = `/${SERVICE_KEY}/waterlevel/list/10M/${stationCode}.json`;
+    requestInfo.endpoint = endpoint;
+    requestInfo.startTime = startTimeStr;
+    requestInfo.endTime = endTimeStr;
+
+    console.log('==== 수위 시계열 데이터 요청 ====');
+    console.log('관측소:', requestInfo.stationName, `(${stationCode})`);
+    console.log('시간 범위:', startTimeStr, '~', endTimeStr);
+    console.log('요청 URL:', BASE_URL + endpoint);
+    console.log('====================================');
+
+    const response = await hanRiverApi.get(endpoint, {
+      params: {
+        // 한강 API는 URL에 파라미터를 포함하지 않고 JSON 엔드포인트만 호출
+      },
+      timeout: 15000
+    });
+
+    console.log('응답 상태:', response?.status);
+    console.log('응답 타입:', typeof response?.data);
+    console.log('응답 데이터 구조:', Object.keys(response?.data || {}));
+
+    if (response?.data) {
+      const jsonData = response.data;
+      const dataList = Array.isArray(jsonData) ? jsonData :
+                       jsonData.content || jsonData.list || [];
+
+      console.log('📊 시계열 데이터 파싱:', dataList.length, '개 항목');
+
+      if (dataList.length === 0) {
+        // 개발 모드에서는 Mock 데이터 반환
+        if (import.meta.env.DEV) {
+          console.warn('⚠️ 개발 모드: Mock 시계열 데이터 사용');
+          return getMockWaterLevelSeries(stationCode, hours);
+        }
+
+        throw new Error(`시계열 데이터가 없습니다 (관측소: ${requestInfo.stationName})`);
+      }
+
+      // JSON을 시계열 형식으로 변환
+      const series = dataList.map((item) => {
+        const wlValue = (item.wl || item.WL || '0').toString().trim();
+        const fwValue = (item.fw || item.FW || '0').toString().trim();
+        const timeValue = item.ymdhm || item.YMDHM || '';
+
+        return {
+          waterLevel: parseFloat(wlValue) || 0,
+          flowRate: parseFloat(fwValue) || 0,
+          stationCode: item.wlobscd || item.WLOBSCD || stationCode,
+          observedAt: timeValue,
+          // 타임스탬프 변환 (YYYYMMDDHHMM → ISO)
+          time: timeValue ? parseTimeToISO(timeValue) : new Date().toISOString(),
+          timestamp: timeValue ? parseTimeToTimestamp(timeValue) : Date.now()
+        };
+      }).filter(item => item.waterLevel > 0 || item.flowRate > 0); // 빈 데이터 필터링
+
+      // 시간순 정렬 (오래된 것부터)
+      series.sort((a, b) => a.timestamp - b.timestamp);
+
+      console.log('✅ 시계열 데이터 조회 성공:', series.length, '개 (유효 데이터)');
+      console.log('첫 번째 항목:', series[0]);
+      console.log('마지막 항목:', series[series.length - 1]);
+
+      return {
+        success: true,
+        data: {
+          stationCode,
+          stationName: requestInfo.stationName,
+          series,
+          dataPoints: series.length,
+          timeRange: { start: startTimeStr, end: endTimeStr }
+        },
+        message: `시계열 데이터 조회 성공 (${series.length}개)`
+      };
+    } else {
+      throw new Error('응답 데이터가 없습니다');
+    }
+  } catch (error) {
+    console.error('==== 한강 API 시계열 조회 실패 ====');
+    console.error('에러 타입:', error?.code || error?.name || typeof error);
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('관측소:', requestInfo.stationName, `(${stationCode})`);
+    console.error('=====================================');
+
+    // 개발 모드에서는 Mock 데이터 반환
+    if (import.meta.env.DEV) {
+      console.warn('⚠️ 개발 모드: Mock 시계열 데이터 사용');
+      return getMockWaterLevelSeries(stationCode, hours);
+    }
+
+    return {
+      success: false,
+      data: null,
+      message: `${requestInfo.stationName} 시계열 데이터를 가져올 수 없습니다: ${error.message}`
+    };
+  }
+};
+
+/**
+ * YYYYMMDDHHMM 형식을 ISO 문자열로 변환
+ */
+function parseTimeToISO(timeStr) {
+  if (!timeStr || timeStr.length !== 12) return new Date().toISOString();
+
+  const year = timeStr.substring(0, 4);
+  const month = timeStr.substring(4, 6);
+  const day = timeStr.substring(6, 8);
+  const hour = timeStr.substring(8, 10);
+  const minute = timeStr.substring(10, 12);
+
+  return new Date(`${year}-${month}-${day}T${hour}:${minute}:00+09:00`).toISOString();
+}
+
+/**
+ * YYYYMMDDHHMM 형식을 타임스탬프로 변환
+ */
+function parseTimeToTimestamp(timeStr) {
+  if (!timeStr || timeStr.length !== 12) return Date.now();
+
+  const year = parseInt(timeStr.substring(0, 4));
+  const month = parseInt(timeStr.substring(4, 6)) - 1; // 0-based
+  const day = parseInt(timeStr.substring(6, 8));
+  const hour = parseInt(timeStr.substring(8, 10));
+  const minute = parseInt(timeStr.substring(10, 12));
+
+  return new Date(year, month, day, hour, minute).getTime();
+}
+
+/**
+ * Mock 시계열 데이터 생성 (개발용)
+ */
+function getMockWaterLevelSeries(stationCode, hours = 3) {
+  const series = [];
+  const now = Date.now();
+  const stationName = stationCode === UIJEONGBU_STATIONS.SINGOK ? '신곡교' : '금신교';
+
+  // 10분 간격으로 데이터 생성
+  const dataPoints = hours * 6; // 3시간 = 18개 포인트
+  for (let i = dataPoints; i >= 0; i--) {
+    const timestamp = now - i * 10 * 60 * 1000; // 10분 간격
+    const time = new Date(timestamp);
+    const baseLevel = 0.85;
+    const variation = Math.sin(i / 6) * 0.15 + Math.random() * 0.05;
+
+    series.push({
+      waterLevel: baseLevel + variation,
+      flowRate: 12.5 + Math.random() * 2,
+      stationCode,
+      observedAt: formatDateTime(time),
+      time: time.toISOString(),
+      timestamp
+    });
+  }
+
+  return {
+    success: true,
+    data: {
+      stationCode,
+      stationName,
+      series,
+      dataPoints: series.length,
+      timeRange: { start: 'mock', end: 'mock' }
+    },
+    message: `Mock 시계열 데이터 (${series.length}개, 개발 모드)`
+  };
+}
+
 // 환경 변수 확인 함수
 export const checkApiConfiguration = () => {
   const config = {
@@ -530,6 +720,7 @@ export { UIJEONGBU_STATIONS, WATER_LEVEL_THRESHOLDS };
 
 export default {
   getUijeongbuWaterLevel,
+  getWaterLevelSeries,
   getStationInfo,
   checkApiConfiguration,
   UIJEONGBU_STATIONS,

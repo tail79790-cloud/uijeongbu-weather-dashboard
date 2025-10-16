@@ -330,36 +330,64 @@ export const getVilageFcst = async (options = {}) => {
  */
 export const getWeatherWarning = async (stnId = '109') => {
   try {
-    console.log('기상특보 조회:', { stnId });
+    // Phase 3: 재시도 로직 적용
+    return await retryWithDelay(async () => {
+      console.log('기상특보 조회:', { stnId });
 
-    const response = await kmaApi.get('/WthrWrnInfoService/getWthrWrnList', {
-      params: {
-        serviceKey: API_KEY,
-        pageNo: 1,
-        numOfRows: 10,
-        dataType: 'JSON',
-        stnId
+      const response = await kmaApi.get('/WthrWrnInfoService/getWthrWrnList', {
+        params: {
+          serviceKey: API_KEY,
+          pageNo: 1,
+          numOfRows: 10,
+          dataType: 'JSON',
+          stnId
+        },
+        timeout: 10000
+      });
+
+      if (response.data?.response?.header?.resultCode === '00') {
+        const items = response.data.response.body?.items?.item;
+        return {
+          success: true,
+          data: items ? (Array.isArray(items) ? items : [items]) : [],
+          message: '기상특보 조회 성공'
+        };
+      } else {
+        const resultCode = response.data?.response?.header?.resultCode;
+        const resultMsg = response.data?.response?.header?.resultMsg || '알 수 없는 오류';
+        throw new Error(`KMA API Error (${resultCode}): ${resultMsg}`);
       }
-    });
-
-    if (response.data?.response?.header?.resultCode === '00') {
-      const items = response.data.response.body?.items?.item;
-      return {
-        success: true,
-        data: items ? (Array.isArray(items) ? items : [items]) : [],
-        message: '기상특보 조회 성공'
-      };
-    } else {
-      throw new Error(response.data?.response?.header?.resultMsg || '알 수 없는 오류');
-    }
+    }, 2, 1000, '기상특보');
   } catch (error) {
-    console.error('기상특보 조회 오류:', error);
+    console.error('==== 기상특보 조회 오류 ====');
+    console.error('에러 타입:', error?.code || error?.name || 'unknown');
+    console.error('에러 메시지:', error?.message || String(error));
+    console.error('API 응답 코드:', error?.response?.data?.response?.header?.resultCode || 'undefined');
+    console.error('API 응답 메시지:', error?.response?.data?.response?.header?.resultMsg || 'undefined');
+    console.error('HTTP 상태:', error?.response?.status || 'undefined');
+    console.error('지역 코드:', stnId);
+    console.error('================================');
+
+    // 개발 모드에서는 Mock 데이터 반환
+    if (import.meta.env.DEV && error.code === 'ERR_NETWORK') {
+      console.warn('⚠️ 개발 모드: Mock 데이터 사용');
+      return getMockWeatherWarning();
+    }
 
     if (error.code === 'ERR_NETWORK') {
       return {
         success: false,
         data: [],
         message: 'KMA API 네트워크 연결 실패: 프록시 서버가 실행 중인지 확인하세요 (npm run dev 필요)'
+      };
+    }
+
+    // 404 Not Found - 데이터 없음
+    if (error.response?.status === 404 || error.response?.data?.response?.header?.resultCode === '03') {
+      return {
+        success: true,
+        data: [],
+        message: '현재 발효 중인 기상특보가 없습니다'
       };
     }
 

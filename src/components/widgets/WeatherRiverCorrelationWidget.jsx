@@ -25,7 +25,8 @@ import {
   predictFloodRisk,
   classifyCorrelationStrength
 } from '../../utils/correlationAnalyzer';
-import { fetchRiverSeries } from '../../services/riverApi';
+import { getWaterLevelSeries } from '../../services/hanRiverApi';
+import { adaptSeriesData } from '../../utils/riverDataAdapter';
 import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
@@ -102,15 +103,18 @@ const WeatherRiverCorrelationWidget = () => {
     staleTime: 5 * 60 * 1000
   });
 
-  // 하천 수위 시계열 데이터 조회
+  // 하천 수위 시계열 데이터 조회 (한강 API + 어댑터)
   const {
     data: riverData,
     isLoading: riverLoading,
     isError: riverError,
     refetch: refetchRiver
   } = useQuery({
-    queryKey: ['riverSeries', selectedStation],
-    queryFn: () => fetchRiverSeries(selectedStation),
+    queryKey: ['waterLevelSeries', 'hanriver', 'correlation', selectedStation],
+    queryFn: async () => {
+      const result = await getWaterLevelSeries(selectedStation, 24); // 24시간 데이터
+      return adaptSeriesData(result); // 어댑터 적용
+    },
     refetchInterval: 10 * 60 * 1000,
     staleTime: 5 * 60 * 1000
   });

@@ -17,7 +17,8 @@ import {
   ResponsiveContainer,
   ReferenceLine
 } from 'recharts';
-import { fetchRiverLevel, fetchRiverSeries, RIVER_STATIONS, calculateLevelChangeRate } from '../../services/riverApi';
+import { getUijeongbuWaterLevel, getWaterLevelSeries, UIJEONGBU_STATIONS, WATER_LEVEL_THRESHOLDS } from '../../services/hanRiverApi';
+import { adaptSingleLevelData, adaptSeriesData, createRiverStations } from '../../utils/riverDataAdapter';
 import {
   getRiskLevel,
   calculateRiskScore,
@@ -33,19 +34,44 @@ import WidgetError from '../common/WidgetError';
 import RefreshButton from '../common/RefreshButton';
 import RiskGauge from '../common/RiskGauge';
 
+// hanRiverApi UIJEONGBU_STATIONS을 riverApi RIVER_STATIONS 형식으로 변환
+const RIVER_STATIONS = createRiverStations(UIJEONGBU_STATIONS, WATER_LEVEL_THRESHOLDS);
+
+// 수위 변화율 계산 (어댑터를 통해 변환된 데이터 사용)
+function calculateLevelChangeRate(series) {
+  if (!series || series.length < 2) return 0;
+
+  // 최근 1시간 데이터 필터링 (6개 데이터포인트, 10분 간격)
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const recentData = series.filter(d => d.timestamp >= oneHourAgo);
+
+  if (recentData.length < 2) return 0;
+
+  const firstLevel = recentData[0].level;  // 어댑터로 변환된 'level' 필드 사용
+  const lastLevel = recentData[recentData.length - 1].level;
+  const timeDiff = (recentData[recentData.length - 1].timestamp - recentData[0].timestamp) / (60 * 60 * 1000); // hours
+
+  if (timeDiff === 0) return 0;
+
+  return (lastLevel - firstLevel) / timeDiff;
+}
+
 const RiverMonitoringWidget = () => {
   const [selectedStation, setSelectedStation] = useState('1018665'); // 신곡교 기본 선택
 
   // 현재 수위 데이터 조회 (5분마다 자동 갱신)
   const {
-    data: levelData,
+    data: rawLevelData,
     isLoading: levelLoading,
     isError: levelError,
     error: levelErrorMsg,
     refetch: refetchLevel
   } = useQuery({
-    queryKey: ['riverLevel', selectedStation],
-    queryFn: () => fetchRiverLevel(selectedStation),
+    queryKey: ['waterLevel', 'hanriver', selectedStation],
+    queryFn: async () => {
+      const result = await getUijeongbuWaterLevel(selectedStation);
+      return adaptSingleLevelData(result); // 어댑터 적용
+    },
     refetchInterval: 5 * 60 * 1000, // 5분
     staleTime: 4 * 60 * 1000, // 4분
     retry: 2
@@ -53,18 +79,25 @@ const RiverMonitoringWidget = () => {
 
   // 시계열 데이터 조회 (5분마다 자동 갱신)
   const {
-    data: seriesData,
+    data: rawSeriesData,
     isLoading: seriesLoading,
     isError: seriesError,
     error: seriesErrorMsg,
     refetch: refetchSeries
   } = useQuery({
-    queryKey: ['riverSeries', selectedStation],
-    queryFn: () => fetchRiverSeries(selectedStation),
+    queryKey: ['waterLevelSeries', 'hanriver', selectedStation],
+    queryFn: async () => {
+      const result = await getWaterLevelSeries(selectedStation, 3);
+      return adaptSeriesData(result); // 어댑터 적용
+    },
     refetchInterval: 5 * 60 * 1000, // 5분
     staleTime: 4 * 60 * 1000,
     retry: 2
   });
+
+  // 어댑터를 통해 변환된 데이터 사용
+  const levelData = rawLevelData;
+  const seriesData = rawSeriesData;
 
   // 전체 새로고침
   const handleRefresh = () => {

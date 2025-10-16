@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getWeatherWarningMsg } from '../../services/kmaApi';
 import { useWidgets } from '../../contexts/WidgetContext';
@@ -8,6 +8,75 @@ import WidgetCard from '../common/WidgetCard';
 import WidgetLoader from '../common/WidgetLoader';
 import WidgetError from '../common/WidgetError';
 import RefreshButton from '../common/RefreshButton';
+
+// 시간별 통보문 캐싱 유틸리티
+const CACHE_KEY = 'weather-bulletin-cache';
+
+// 현재 시간대 판단 (11시 전 = morning, 17시 이후 = evening)
+const getCurrentPeriod = () => {
+  const now = new Date();
+  const hour = now.getHours();
+  return hour < 17 ? 'morning' : 'evening';
+};
+
+// 날짜 비교 (YYYY-MM-DD 형식)
+const isSameDay = (date1, date2) => {
+  return date1.toDateString() === date2.toDateString();
+};
+
+// 캐시 가져오기
+const getCachedBulletin = (regionCode) => {
+  try {
+    const cacheStr = localStorage.getItem(`${CACHE_KEY}-${regionCode}`);
+    if (!cacheStr) return null;
+
+    const cache = JSON.parse(cacheStr);
+    const period = getCurrentPeriod();
+    const periodCache = cache[period];
+
+    if (!periodCache) return null;
+
+    // 캐시 날짜 확인 (오늘 날짜가 아니면 무효화)
+    const cacheDate = new Date(periodCache.date);
+    const today = new Date();
+
+    if (!isSameDay(cacheDate, today)) {
+      return null;
+    }
+
+    return periodCache;
+  } catch (error) {
+    console.error('캐시 읽기 오류:', error);
+    return null;
+  }
+};
+
+// 캐시 저장하기
+const setCachedBulletin = (regionCode, data) => {
+  try {
+    const period = getCurrentPeriod();
+    const now = new Date();
+
+    // 기존 캐시 가져오기
+    let cache = {};
+    const cacheStr = localStorage.getItem(`${CACHE_KEY}-${regionCode}`);
+    if (cacheStr) {
+      cache = JSON.parse(cacheStr);
+    }
+
+    // 현재 시간대 캐시 업데이트
+    cache[period] = {
+      data,
+      date: now.toISOString(),
+      fetchedAt: now.toISOString(),
+      period
+    };
+
+    localStorage.setItem(`${CACHE_KEY}-${regionCode}`, JSON.stringify(cache));
+  } catch (error) {
+    console.error('캐시 저장 오류:', error);
+  }
+};
 
 // 통보문 레벨에 따른 스타일
 const getLevelStyle = (title) => {
@@ -45,8 +114,19 @@ const getLevelStyle = (title) => {
 };
 
 // 통보문 상세 카드 컴포넌트
-const DetailCard = ({ message }) => {
+const DetailCard = ({ message, period }) => {
   const style = getLevelStyle(message.t1);
+
+  // 시간대 배지 설정
+  const periodBadge = period === 'morning' ? {
+    icon: '🌅',
+    text: '오전 11시 발표',
+    style: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-600'
+  } : {
+    icon: '🌆',
+    text: '오후 5시 발표',
+    style: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-600'
+  };
 
   return (
     <div className={`${style.container} border-2 rounded-lg overflow-hidden mb-4 shadow-md`}>
@@ -61,16 +141,24 @@ const DetailCard = ({ message }) => {
             {message.t1 || '기상특보 통보문'}
           </span>
         </div>
-        {message.tmFc && (
-          <span className="text-xs font-medium">
-            {formatKoreanDateTime(
-              parseKMADateTime(
-                String(message.tmFc).slice(0, 8),  // YYYYMMDD
-                String(message.tmFc).slice(8, 12)  // HHmm
-              )
-            )}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* 시간대 배지 */}
+          {period && (
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${periodBadge.style}`}>
+              {periodBadge.icon} {periodBadge.text}
+            </span>
+          )}
+          {message.tmFc && (
+            <span className="text-xs font-medium">
+              {formatKoreanDateTime(
+                parseKMADateTime(
+                  String(message.tmFc).slice(0, 8),  // YYYYMMDD
+                  String(message.tmFc).slice(8, 12)  // HHmm
+                )
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 통보문 내용 */}
@@ -156,7 +244,11 @@ const WeatherDetailWidget = memo(() => {
   const [selectedRegion, setSelectedRegion] = useState('uijeongbu');
   const currentRegionCode = REGION_CODES[selectedRegion];
 
-  // 기상특보 통보문 조회
+  // 현재 시간대 및 캐시 상태
+  const currentPeriod = useMemo(() => getCurrentPeriod(), []);
+  const [displayPeriod, setDisplayPeriod] = useState(currentPeriod);
+
+  // 기상특보 통보문 조회 (캐싱 적용)
   const {
     data: messageData,
     isLoading,
@@ -164,12 +256,47 @@ const WeatherDetailWidget = memo(() => {
     error,
     refetch
   } = useQuery({
-    queryKey: ['weatherDetail', currentRegionCode],
-    queryFn: () => getWeatherWarningMsg(currentRegionCode || '109'),
+    queryKey: ['weatherDetail', currentRegionCode, currentPeriod],
+    queryFn: async () => {
+      // 1. 캐시 확인
+      const cached = getCachedBulletin(currentRegionCode);
+      if (cached && cached.period === currentPeriod) {
+        console.log(`✅ 캐시된 ${cached.period} 통보문 사용 중`);
+        setDisplayPeriod(cached.period);
+        return { ...cached.data, fromCache: true };
+      }
+
+      // 2. API 호출
+      console.log(`🌐 API에서 새 통보문 가져오기 (${currentPeriod})`);
+      const result = await getWeatherWarningMsg(currentRegionCode || '109');
+
+      // 3. 캐시 저장
+      if (result.success && result.data) {
+        setCachedBulletin(currentRegionCode, result);
+        setDisplayPeriod(currentPeriod);
+      }
+
+      return result;
+    },
     refetchInterval: refreshIntervals[widgetId] || 60000, // 1분
-    staleTime: 30000,
+    staleTime: Infinity, // 캐시된 데이터는 항상 fresh
     onSuccess: () => updateLastRefresh(widgetId)
   });
+
+  // 시간대 변경 감지 (17시 전후로 자동 전환)
+  useEffect(() => {
+    const checkPeriod = () => {
+      const newPeriod = getCurrentPeriod();
+      if (newPeriod !== currentPeriod) {
+        console.log(`⏰ 시간대 변경 감지: ${currentPeriod} → ${newPeriod}`);
+        refetch(); // 새 시간대 데이터 가져오기
+      }
+    };
+
+    // 1분마다 시간대 체크
+    const intervalId = setInterval(checkPeriod, 60000);
+    return () => clearInterval(intervalId);
+  }, [currentPeriod, refetch]);
 
   const messages = messageData?.data || [];
 
@@ -271,7 +398,7 @@ const WeatherDetailWidget = memo(() => {
 
         {/* 통보문 카드 목록 */}
         {messages.map((message, index) => (
-          <DetailCard key={index} message={message} />
+          <DetailCard key={index} message={message} period={displayPeriod} />
         ))}
 
         {/* 안내 문구 */}

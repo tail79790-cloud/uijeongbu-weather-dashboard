@@ -2,8 +2,12 @@ import { memo, Suspense, lazy, useCallback } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout'
 import { useWidgets } from '../../contexts/WidgetContext'
 import ErrorBoundary from '../ErrorBoundary'
+import EditModeToolbar from './EditModeToolbar'
+import GridOverlay from './GridOverlay'
+import DragHandle from './DragHandle'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+import '../../styles/react-grid-layout-custom.css'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -40,6 +44,29 @@ const WidgetLoader = () => (
     <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
   </div>
 )
+
+// 위젯 이름 매핑
+const WIDGET_NAMES = {
+  'deployment-section': '👮 경찰관 배치 관리',
+  'weather-alert': '🚨 날씨 특보',
+  'weather-detail': '📄 기상특보 통보문',
+  'warning-status': '🗺️ 전국 특보 현황',
+  'current-weather': '🌤️ 현재 날씨',
+  'rainfall-flood': '💧 강수량/수위',
+  'river-monitoring': '🌊 하천 수위 모니터링',
+  'district-comparison': '📍 행정구역별 비교',
+  'weather-river-correlation': '📊 날씨-하천 상관분석',
+  'disaster-risk': '🚨 재난 위험도',
+  'hourly-forecast': '⏰ 시간별 예보',
+  'daily-forecast': '📅 일별 예보',
+  'mid-forecast': '📊 중기 예보',
+  'air-quality': '🌫️ 대기질',
+  'living-weather': '🏃 생활기상지수',
+  'notification-settings': '🔔 알림 설정',
+  'uijeongbu-map': '🗺️ 의정부 지도',
+  'police-indices': '👮 경찰 특화 지수',
+  'smart-insights': '🧠 스마트 인사이트'
+}
 
 // 위젯 컴포넌트 매핑
 const WIDGET_COMPONENTS = {
@@ -96,11 +123,15 @@ const WidgetWrapper = memo(({ widgetId, isEditMode }) => {
 
   // 편집 모드일 때 드래그 핸들 및 시각적 피드백 표시
   if (isEditMode) {
-    // 레이아웃에서 static 속성 확인 (더 이상 하드코딩하지 않음)
+    // 레이아웃에서 static 속성 확인
     const isStatic = false  // 모든 위젯이 이동 가능
+    const widgetName = WIDGET_NAMES[widgetId] || widgetId
 
     return (
       <div className={`h-full relative group ${isStatic ? '' : 'cursor-move'}`}>
+        {/* 드래그 핸들 */}
+        <DragHandle widgetName={widgetName} isStatic={isStatic} />
+
         {/* 편집 가능 표시 오버레이 */}
         <div className={`
           absolute inset-0 pointer-events-none z-10 rounded-lg transition-all duration-200
@@ -108,26 +139,8 @@ const WidgetWrapper = memo(({ widgetId, isEditMode }) => {
             ? 'ring-2 ring-gray-300 dark:ring-gray-600 ring-opacity-50'
             : 'ring-2 ring-blue-400 dark:ring-blue-500 ring-opacity-0 group-hover:ring-opacity-60'
           }
-        `}>
-          {/* 드래그 핸들 */}
-          {!isStatic && (
-            <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-blue-500/10 to-transparent dark:from-blue-400/10 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center gap-1 pt-1">
-              <div className="w-1 h-1 rounded-full bg-blue-500 dark:bg-blue-400"></div>
-              <div className="w-1 h-1 rounded-full bg-blue-500 dark:bg-blue-400"></div>
-              <div className="w-1 h-1 rounded-full bg-blue-500 dark:bg-blue-400"></div>
-            </div>
-          )}
+        `} />
 
-          {/* Static 위젯 표시 */}
-          {isStatic && (
-            <div className="absolute top-2 right-2 px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-              </svg>
-              고정됨
-            </div>
-          )}
-        </div>
         {content}
       </div>
     )
@@ -140,11 +153,13 @@ WidgetWrapper.displayName = 'WidgetWrapper'
 
 // 메인 대시보드 그리드 컴포넌트
 const DashboardGrid = memo(() => {
-  const { 
-    layouts, 
-    visibility, 
-    isEditMode, 
-    updateLayouts 
+  const {
+    layouts,
+    visibility,
+    isEditMode,
+    setIsEditMode,
+    updateLayouts,
+    resetToDefaults
   } = useWidgets()
 
   // 레이아웃 변경 핸들러
@@ -152,37 +167,68 @@ const DashboardGrid = memo(() => {
     updateLayouts(allLayouts)
   }, [updateLayouts])
 
+  // 편집 모드 종료 핸들러
+  const handleExitEdit = useCallback(() => {
+    setIsEditMode(false)
+  }, [setIsEditMode])
+
+  // 레이아웃 초기화 핸들러
+  const handleResetLayout = useCallback(() => {
+    if (window.confirm('레이아웃을 초기화하시겠습니까?\n모든 변경사항이 사라집니다.')) {
+      resetToDefaults()
+    }
+  }, [resetToDefaults])
+
   // 표시할 위젯 필터링
   const visibleWidgets = Object.keys(visibility).filter(id => visibility[id])
 
   return (
-    <ResponsiveGridLayout
-      className="layout"
-      layouts={layouts}
-      onLayoutChange={handleLayoutChange}
-      breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-      cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-      rowHeight={80}
-      margin={[16, 16]}
-      containerPadding={[0, 0]}
-      isDraggable={isEditMode}
-      isResizable={isEditMode}
-      compactType="vertical"
-      preventCollision={false}
-    >
-      {visibleWidgets.map(widgetId => (
-        <div
-          key={widgetId}
-          data-widget-id={widgetId}
-          className="widget-container"
-        >
-          <WidgetWrapper
-            widgetId={widgetId}
-            isEditMode={isEditMode}
-          />
+    <>
+      {/* 편집 모드 툴바 */}
+      {isEditMode && (
+        <EditModeToolbar
+          onExitEdit={handleExitEdit}
+          onResetLayout={handleResetLayout}
+        />
+      )}
+
+      {/* 편집 모드 그리드 오버레이 */}
+      {isEditMode && <GridOverlay />}
+
+      {/* 편집 모드일 때 상단 여백 추가 (툴바 공간 확보) */}
+      <div className={`${isEditMode ? 'mt-24' : ''} transition-all duration-300`}>
+        <div className={isEditMode ? 'edit-mode-active' : ''}>
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts}
+            onLayoutChange={handleLayoutChange}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+            rowHeight={80}
+            margin={[16, 16]}
+            containerPadding={[0, 0]}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            compactType="vertical"
+            preventCollision={false}
+            draggableHandle=".drag-handle"
+          >
+            {visibleWidgets.map(widgetId => (
+              <div
+                key={widgetId}
+                data-widget-id={widgetId}
+                className="widget-container"
+              >
+                <WidgetWrapper
+                  widgetId={widgetId}
+                  isEditMode={isEditMode}
+                />
+              </div>
+            ))}
+          </ResponsiveGridLayout>
         </div>
-      ))}
-    </ResponsiveGridLayout>
+      </div>
+    </>
   )
 })
 

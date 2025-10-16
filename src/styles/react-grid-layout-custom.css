@@ -1,0 +1,218 @@
+/**
+ * React Grid Layout 커스텀 스타일
+ *
+ * 목적:
+ * - 리사이즈 핸들을 크고 명확하게 만들기
+ * - 드래그 앤 드롭 시각적 피드백 강화
+ * - 편집 모드 UX 개선
+ */
+
+/* ======================
+   리사이즈 핸들 커스터마이징
+   ====================== */
+
+/* 모든 리사이즈 핸들 기본 스타일 */
+.react-resizable-handle {
+  position: absolute;
+  width: 30px !important;
+  height: 30px !important;
+  background-color: #3b82f6; /* blue-500 */
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 30;
+}
+
+/* 다크 모드 */
+.dark .react-resizable-handle {
+  background-color: #60a5fa; /* blue-400 */
+  border-color: #1f2937;
+}
+
+/* 위젯에 마우스 올렸을 때 핸들 표시 */
+.widget-container:hover .react-resizable-handle {
+  opacity: 1;
+}
+
+/* 리사이즈 중일 때 */
+.react-resizable-handle:active,
+.react-resizable-handle:hover {
+  opacity: 1 !important;
+  transform: scale(1.1);
+  background-color: #2563eb; /* blue-600 */
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.dark .react-resizable-handle:active,
+.dark .react-resizable-handle:hover {
+  background-color: #3b82f6; /* blue-500 */
+}
+
+/* 남동쪽 핸들 (주요) */
+.react-resizable-handle-se {
+  bottom: -15px;
+  right: -15px;
+  cursor: nwse-resize;
+}
+
+/* 남쪽 핸들 */
+.react-resizable-handle-s {
+  bottom: -15px;
+  left: 50%;
+  margin-left: -15px;
+  cursor: ns-resize;
+}
+
+/* 동쪽 핸들 */
+.react-resizable-handle-e {
+  right: -15px;
+  top: 50%;
+  margin-top: -15px;
+  cursor: ew-resize;
+}
+
+/* 리사이즈 핸들 아이콘 */
+.react-resizable-handle::after {
+  content: '⇲';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.react-resizable-handle-s::after {
+  content: '⇕';
+}
+
+.react-resizable-handle-e::after {
+  content: '⇔';
+}
+
+/* ======================
+   드래그 앤 드롭 피드백
+   ====================== */
+
+/* 드래그 중인 위젯 */
+.react-grid-item.react-draggable-dragging {
+  opacity: 0.7;
+  transform: scale(1.02);
+  z-index: 1000 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  transition: none;
+}
+
+/* 리사이즈 중인 위젯 */
+.react-grid-item.resizing {
+  opacity: 0.8;
+  z-index: 100 !important;
+  transition: none;
+}
+
+/* 위젯 플레이스홀더 (드래그 목표 지점) */
+.react-grid-placeholder {
+  background-color: rgba(59, 130, 246, 0.2) !important; /* blue-500 */
+  border: 2px dashed #3b82f6 !important;
+  border-radius: 8px;
+  opacity: 1 !important;
+  transition: all 0.2s ease !important;
+  z-index: 1 !important;
+}
+
+.dark .react-grid-placeholder {
+  background-color: rgba(96, 165, 250, 0.2) !important; /* blue-400 */
+  border-color: #60a5fa !important;
+}
+
+/* ======================
+   편집 모드 위젯 스타일
+   ====================== */
+
+/* 편집 모드 활성화 시 위젯 컨테이너 */
+.edit-mode-active .widget-container {
+  transition: all 0.2s ease;
+}
+
+/* 편집 모드에서 위젯에 마우스 올렸을 때 */
+.edit-mode-active .widget-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dark.edit-mode-active .widget-container:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* 편집 모드에서 위젯 내부는 포인터 이벤트 비활성화 (드래그 충돌 방지) */
+.edit-mode-active .widget-container > div {
+  pointer-events: none;
+}
+
+/* 드래그 핸들은 포인터 이벤트 활성화 */
+.edit-mode-active .drag-handle {
+  pointer-events: auto;
+}
+
+/* ======================
+   반응형 조정
+   ====================== */
+
+/* 태블릿 이하에서는 핸들 크기 약간 축소 */
+@media (max-width: 1024px) {
+  .react-resizable-handle {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .react-resizable-handle-se {
+    bottom: -12px;
+    right: -12px;
+  }
+
+  .react-resizable-handle-s {
+    bottom: -12px;
+    margin-left: -12px;
+  }
+
+  .react-resizable-handle-e {
+    right: -12px;
+    margin-top: -12px;
+  }
+}
+
+/* 모바일에서는 리사이즈 비활성화 */
+@media (max-width: 768px) {
+  .react-resizable-handle {
+    display: none !important;
+  }
+}
+
+/* ======================
+   접근성
+   ====================== */
+
+/* 키보드 포커스 시 핸들 표시 */
+.react-resizable-handle:focus {
+  opacity: 1 !important;
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ======================
+   성능 최적화
+   ====================== */
+
+/* GPU 가속 활성화 */
+.react-grid-item {
+  will-change: transform;
+}
+
+/* 드래그/리사이즈 중 부드러운 애니메이션 */
+.react-grid-item.react-draggable-dragging,
+.react-grid-item.resizing {
+  will-change: transform, width, height;
+}

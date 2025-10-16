@@ -159,7 +159,14 @@ const DashboardGrid = memo(() => {
     isEditMode,
     setIsEditMode,
     updateLayouts,
-    resetToDefaults
+    resetToDefaults,
+    // Phase 2: 히스토리 관리
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    historyInfo,
+    applyPreset
   } = useWidgets()
 
   // 레이아웃 변경 핸들러
@@ -189,6 +196,12 @@ const DashboardGrid = memo(() => {
         <EditModeToolbar
           onExitEdit={handleExitEdit}
           onResetLayout={handleResetLayout}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          historyInfo={historyInfo}
+          onApplyPreset={applyPreset}
         />
       )}
 

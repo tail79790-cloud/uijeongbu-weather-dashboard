@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import useLayoutHistory from '../hooks/useLayoutHistory'
+import { getPresetById } from '../constants/layoutPresets'
 
 // 위젯 기본 설정
-const DEFAULT_LAYOUTS = {
+export const DEFAULT_LAYOUTS = {
   lg: [
     // 경찰관 배치 관리 섹션
     { i: 'deployment-section', x: 0, y: 0, w: 12, h: 10, minW: 12, minH: 8 },
@@ -237,6 +239,17 @@ export function WidgetProvider({ children }) {
   const [isEditMode, setIsEditMode] = useState(false)
   const [lastUpdates, setLastUpdates] = useState({})
 
+  // Phase 2: 레이아웃 히스토리 관리
+  const {
+    addToHistory,
+    undo: historyUndo,
+    redo: historyRedo,
+    canUndo,
+    canRedo,
+    historyInfo,
+    clear: clearHistory
+  } = useLayoutHistory(20)
+
   // localStorage에 저장
   useEffect(() => {
     localStorage.setItem('widget-layouts', JSON.stringify(layouts))
@@ -253,7 +266,51 @@ export function WidgetProvider({ children }) {
   // 레이아웃 변경
   const updateLayouts = useCallback((newLayouts) => {
     setLayouts(newLayouts)
-  }, [])
+    // 히스토리에 추가 (편집 모드에서만)
+    if (isEditMode) {
+      addToHistory(newLayouts)
+    }
+  }, [isEditMode, addToHistory])
+
+  // 실행 취소 (Undo)
+  const undo = useCallback(() => {
+    const previousLayout = historyUndo()
+    if (previousLayout) {
+      setLayouts(previousLayout)
+      localStorage.setItem('widget-layouts', JSON.stringify(previousLayout))
+    }
+  }, [historyUndo])
+
+  // 다시 실행 (Redo)
+  const redo = useCallback(() => {
+    const nextLayout = historyRedo()
+    if (nextLayout) {
+      setLayouts(nextLayout)
+      localStorage.setItem('widget-layouts', JSON.stringify(nextLayout))
+    }
+  }, [historyRedo])
+
+  // 프리셋 적용
+  const applyPreset = useCallback((presetId) => {
+    const preset = getPresetById(presetId)
+    if (!preset) {
+      console.error(`프리셋을 찾을 수 없습니다: ${presetId}`)
+      return
+    }
+
+    // 'default' 프리셋은 DEFAULT_LAYOUTS 사용
+    const newLayouts = preset.layouts || DEFAULT_LAYOUTS
+
+    // 현재 레이아웃을 히스토리에 추가 (Undo 가능하도록)
+    addToHistory(layouts)
+
+    // 새 레이아웃 적용
+    setLayouts(newLayouts)
+    localStorage.setItem('widget-layouts', JSON.stringify(newLayouts))
+
+    // 프리셋 적용 후 히스토리에 추가
+    addToHistory(newLayouts)
+  }, [layouts, addToHistory])
 
   // 위젯 표시/숨김 토글
   const toggleWidgetVisibility = useCallback((widgetId) => {
@@ -281,12 +338,15 @@ export function WidgetProvider({ children }) {
 
   // 설정 초기화
   const resetToDefaults = useCallback(() => {
+    // 히스토리 초기화
+    clearHistory()
+    // localStorage 초기화
     localStorage.removeItem('widget-layouts')
     localStorage.removeItem('widget-visibility')
     localStorage.removeItem('widget-refresh-intervals')
     // localStorage 삭제 후 페이지 새로고침하여 기본값으로 재초기화
     window.location.reload()
-  }, [])
+  }, [clearHistory])
 
   const value = {
     // 상태
@@ -295,14 +355,22 @@ export function WidgetProvider({ children }) {
     refreshIntervals,
     isEditMode,
     lastUpdates,
-    
+
     // 액션
     updateLayouts,
     toggleWidgetVisibility,
     updateRefreshInterval,
     updateLastRefresh,
     setIsEditMode,
-    resetToDefaults
+    resetToDefaults,
+
+    // Phase 2: 히스토리 관리
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    historyInfo,
+    applyPreset
   }
 
   return (
